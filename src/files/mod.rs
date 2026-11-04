@@ -2,7 +2,6 @@
 
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::time::UNIX_EPOCH;
 
 use crate::util::xdg;
 
@@ -139,11 +138,7 @@ pub fn thumbnail_path(path: &Path, size: u32) -> PathBuf {
 }
 
 fn thumbnail_path_in(cache: &Path, path: &Path, size: u32) -> PathBuf {
-    let modified = std::fs::metadata(path)
-        .and_then(|m| m.modified())
-        .ok()
-        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-        .map_or(0, |d| d.as_secs());
+    let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
     let mut hasher = DefaultHasher::new();
     (path, modified, size).hash(&mut hasher);
     cache.join(format!("{:016x}.png", hasher.finish()))
@@ -203,6 +198,7 @@ fn video_frame(path: &Path, size: u32, target: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{Duration, UNIX_EPOCH};
 
     #[test]
     fn lists_filtered_and_sorted() {
@@ -224,6 +220,26 @@ mod tests {
         let decoded = image::open(&thumb).unwrap();
         assert_eq!((decoded.width(), decoded.height()), (100, 50));
         assert_eq!(thumbnail_in(dir.path(), &source, 100).unwrap(), thumb);
+    }
+
+    #[test]
+    fn thumbnails_update_after_changes_within_the_same_second() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("image.png");
+        let first_modified = UNIX_EPOCH + Duration::new(1_700_000_000, 100_000_000);
+        let second_modified = UNIX_EPOCH + Duration::new(1_700_000_000, 900_000_000);
+
+        image::RgbImage::from_pixel(4, 2, image::Rgb([255, 0, 0])).save(&source).unwrap();
+        std::fs::File::open(&source).unwrap().set_modified(first_modified).unwrap();
+        let first = thumbnail_in(dir.path(), &source, 2).unwrap();
+        assert_eq!(image::open(&first).unwrap().to_rgb8().get_pixel(0, 0).0, [255, 0, 0]);
+
+        image::RgbImage::from_pixel(4, 2, image::Rgb([0, 0, 255])).save(&source).unwrap();
+        std::fs::File::open(&source).unwrap().set_modified(second_modified).unwrap();
+        let second = thumbnail_in(dir.path(), &source, 2).unwrap();
+        assert_ne!(first, second);
+        assert_eq!(image::open(&second).unwrap().to_rgb8().get_pixel(0, 0).0, [0, 0, 255]);
+        assert_eq!(thumbnail_in(dir.path(), &source, 2).unwrap(), second);
     }
 
     #[test]
