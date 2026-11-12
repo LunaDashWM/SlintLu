@@ -29,7 +29,7 @@ impl ModifierKeys {
     }
 
     /// Updates the state from a key Slint is about to receive.
-    fn track(&mut self, text: &str, pressed: bool) {
+    pub(crate) fn track(&mut self, text: &str, pressed: bool) {
         let is = |keys: [Key; 2]| keys.into_iter().any(|k| SharedString::from(k) == text);
         if is([Key::Shift, Key::ShiftR]) {
             self.shift = pressed;

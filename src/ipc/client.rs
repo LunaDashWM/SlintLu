@@ -9,19 +9,30 @@ use super::protocol::{Request, Response};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 
-/// The socket of the shell running in this Wayland session:
-/// `$SLINTLU_SOCKET`, or `$XDG_RUNTIME_DIR/slintlu/<WAYLAND_DISPLAY>.sock`.
+/// The socket of the shell running in this session: `$SLINTLU_SOCKET`, or
+/// `$XDG_RUNTIME_DIR/slintlu/<display>.sock` (see [`display_name`]).
 pub fn socket_path() -> PathBuf {
     if let Some(path) = std::env::var_os("SLINTLU_SOCKET") {
         return path.into();
     }
     let runtime =
         std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
-    let display = std::env::var("WAYLAND_DISPLAY").unwrap_or_else(|_| "wayland-0".into());
-    // WAYLAND_DISPLAY may be an absolute path; keep only its name.
-    let display =
-        Path::new(&display).file_name().map_or(display.clone(), |n| n.to_string_lossy().into());
+    let env = |name| std::env::var(name).ok().filter(|v| !v.is_empty());
+    let display = display_name(env("WAYLAND_DISPLAY"), env("DISPLAY"));
     runtime.join("slintlu").join(format!("{display}.sock"))
+}
+
+/// A file name for the display: the Wayland socket name, `x11-<display>` in X11 sessions, or
+/// `wayland-0`.
+fn display_name(wayland: Option<String>, x11: Option<String>) -> String {
+    match (wayland, x11) {
+        // WAYLAND_DISPLAY may be an absolute path; keep only its name.
+        (Some(display), _) => {
+            Path::new(&display).file_name().map_or(display.clone(), |n| n.to_string_lossy().into())
+        }
+        (None, Some(display)) => format!("x11-{}", display.replace([':', '/'], "")),
+        (None, None) => "wayland-0".into(),
+    }
 }
 
 /// A connection to the shell's IPC socket.
@@ -77,5 +88,15 @@ mod tests {
         assert!(response.ok);
         assert_eq!(response.result, "pong");
         server.join().unwrap();
+    }
+
+    #[test]
+    fn display_names() {
+        let some = |s: &str| Some(s.to_owned());
+        assert_eq!(display_name(some("wayland-1"), some(":0")), "wayland-1");
+        assert_eq!(display_name(some("/run/user/1000/wayland-2"), None), "wayland-2");
+        assert_eq!(display_name(None, some(":0")), "x11-0");
+        assert_eq!(display_name(None, some("localhost:10.0")), "x11-localhost10.0");
+        assert_eq!(display_name(None, None), "wayland-0");
     }
 }

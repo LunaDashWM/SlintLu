@@ -3,7 +3,7 @@
 mod compositor;
 pub(crate) mod context;
 mod platform;
-mod proxy;
+pub(crate) mod proxy;
 pub(crate) mod state;
 
 pub use platform::WaylandPlatform;

@@ -6,7 +6,7 @@ pub(crate) mod egl;
 #[cfg(feature = "vulkan")]
 pub(crate) mod gpu;
 mod kind;
-mod pixel;
+pub(crate) mod pixel;
 mod software;
 
 use slint::platform::PlatformError;
@@ -57,15 +57,18 @@ impl WindowRenderer {
             }
             #[cfg(feature = "opengl")]
             RendererKind::OpenGL => {
-                let display = egl::EglDisplay::shared(ctx).ok_or("EGL initialisation failed")?;
-                let window = egl::EglWindow::new(display, surface)?;
+                let native = ctx.conn.backend().display_ptr() as *mut std::ffi::c_void;
+                let display = egl::EglDisplay::shared(&ctx.egl, egl::NativeDisplay::Wayland(native))
+                    .ok_or("EGL initialisation failed")?;
+                let window = egl::EglWindow::wayland(display, surface)?;
                 slint::platform::femtovg_renderer::FemtoVGRenderer::new(window)
                     .map(|r| Self::OpenGL(Box::new(r)))
                     .map_err(|e| e.to_string())
             }
             #[cfg(feature = "vulkan")]
             RendererKind::Vulkan => {
-                gpu::GpuWindow::new(ctx, surface).map(|w| Self::Vulkan(Box::new(w)))
+                let native = gpu::NativeWindow::wayland(&ctx.conn, surface)?;
+                gpu::GpuWindow::new(&ctx.gpu, &native).map(|w| Self::Vulkan(Box::new(w)))
             }
             #[allow(unreachable_patterns)]
             other => Err(format!("support for {other} was not compiled in")),

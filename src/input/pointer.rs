@@ -19,7 +19,7 @@ const BTN_SIDE: u32 = 0x113;
 const BTN_EXTRA: u32 = 0x114;
 
 /// Logical pixels Slint scrolls per wheel notch.
-const PIXELS_PER_SCROLL_STEP: f64 = 60.0;
+pub(crate) const PIXELS_PER_SCROLL_STEP: f64 = 60.0;
 
 fn scroll_delta(axis: &AxisScroll) -> f32 {
     // Wayland scrolls "down" with positive values, Slint the other way around.
