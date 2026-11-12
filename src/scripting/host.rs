@@ -340,9 +340,9 @@ impl ShellHost {
 
         // Follow later changes of the panel's properties (anchors, layer, `shown` …).
         let weak = instance.as_weak();
-        let window_weak = Rc::downgrade(&window);
         let _ = instance.set_global_callback("SlintLuRuntime", "panel-changed", move |_| {
-            if let (Some(instance), Some(window)) = (weak.upgrade(), window_weak.upgrade())
+            if let Some(instance) = weak.upgrade()
+                && let Some(window) = slintlu::window_for(instance.window())
                 && let WindowKind::Panel(spec) = panel::window_kind(&instance)
             {
                 // Unmap before touching the layer state: a configure answering a commit made

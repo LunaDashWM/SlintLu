@@ -53,6 +53,7 @@ mod input;
 pub mod ipc;
 pub mod launcher;
 mod output;
+mod platform;
 mod render;
 pub mod security;
 mod shell;
@@ -63,8 +64,9 @@ pub mod time;
 pub mod util;
 mod window;
 
-pub use core::{PlatformConfig, WaylandPlatform, init, window_for};
+pub use core::WaylandPlatform;
 pub use output::{OutputInfo, on_outputs_changed, outputs};
+pub use platform::{PlatformConfig, ShellWindow, init, window_for};
 pub use render::RendererKind;
 pub use shell::config::{
     Anchors, ExclusiveZone, KeyboardMode, Layer, LayerConfig, Margins, SurfaceRole,

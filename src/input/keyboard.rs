@@ -59,7 +59,7 @@ impl State {
             log::debug!("key event without a focused window: {:?}", event.keysym);
             return;
         };
-        let Some(text) = key_text(&event) else { return };
+        let Some(text) = key_text(event.keysym, event.utf8.as_deref()) else { return };
         log::trace!("key {:?} -> {text:?}", event.keysym);
         match kind {
             KeyKind::Press | KeyKind::Repeat => self.modifier_keys.track(&text, true),

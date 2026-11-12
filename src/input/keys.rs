@@ -2,21 +2,19 @@
 
 use slint::SharedString;
 use slint::platform::Key;
-use smithay_client_toolkit::seat::keyboard::{KeyEvent, Keysym};
+use smithay_client_toolkit::seat::keyboard::Keysym;
 
-/// Returns the Slint key text for a key event, or `None` when the key produces nothing Slint
-/// understands (e.g. dead keys).
-pub(crate) fn key_text(event: &KeyEvent) -> Option<SharedString> {
-    if let Some(key) = special_key(event.keysym) {
+/// Returns the Slint key text for a key that produced `keysym` and, if the keymap says so,
+/// `utf8`, or `None` when the key produces nothing Slint understands (e.g. dead keys).
+pub(crate) fn key_text(keysym: Keysym, utf8: Option<&str>) -> Option<SharedString> {
+    if let Some(key) = special_key(keysym) {
         return Some(key.into());
     }
-    match &event.utf8 {
+    match utf8 {
         // Control characters are produced for e.g. Ctrl+A; Slint wants the plain letter with the
         // modifier tracked separately.
-        Some(text) if !text.is_empty() && !text.chars().all(char::is_control) => {
-            Some(text.as_str().into())
-        }
-        _ => event.keysym.key_char().filter(|c| !c.is_control()).map(|c| c.into()),
+        Some(text) if !text.is_empty() && !text.chars().all(char::is_control) => Some(text.into()),
+        _ => keysym.key_char().filter(|c| !c.is_control()).map(|c| c.into()),
     }
 }
 
@@ -67,27 +65,23 @@ fn special_key(sym: Keysym) -> Option<Key> {
 mod tests {
     use super::*;
 
-    fn event(keysym: Keysym, utf8: Option<&str>) -> KeyEvent {
-        KeyEvent { time: 0, raw_code: 0, keysym, utf8: utf8.map(str::to_owned) }
-    }
-
     #[test]
     fn printable_keys_use_utf8() {
-        assert_eq!(key_text(&event(Keysym::a, Some("a"))).as_deref(), Some("a"));
-        assert_eq!(key_text(&event(Keysym::A, Some("A"))).as_deref(), Some("A"));
+        assert_eq!(key_text(Keysym::a, Some("a")).as_deref(), Some("a"));
+        assert_eq!(key_text(Keysym::A, Some("A")).as_deref(), Some("A"));
     }
 
     #[test]
     fn control_chars_become_plain_letters() {
         // Ctrl+C produces ETX as utf8.
-        assert_eq!(key_text(&event(Keysym::c, Some("\u{3}"))).as_deref(), Some("c"));
+        assert_eq!(key_text(Keysym::c, Some("\u{3}")).as_deref(), Some("c"));
     }
 
     #[test]
     fn special_keys_map_to_slint_keys() {
         let text: SharedString = Key::Return.into();
-        assert_eq!(key_text(&event(Keysym::Return, Some("\r"))), Some(text));
+        assert_eq!(key_text(Keysym::Return, Some("\r")), Some(text));
         let text: SharedString = Key::Shift.into();
-        assert_eq!(key_text(&event(Keysym::Shift_L, None)), Some(text));
+        assert_eq!(key_text(Keysym::Shift_L, None), Some(text));
     }
 }
