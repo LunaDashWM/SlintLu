@@ -1,4 +1,5 @@
-//! The `Theme` global: palettes from `theme.json`, pywal and the desktop portal.
+//! The `Theme` global: palettes from `theme.json`, pywal and the desktop portal. The font
+//! family is `theme.json`'s, else the desktop's interface font.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -29,12 +30,12 @@ fn color(c: Color) -> Value {
 fn publish(host: &ShellHost) {
     STATE.with(|state| {
         let state = state.borrow();
-        let prefers_dark = state.appearance.and_then(|a| match a.color_scheme {
+        let prefers_dark = state.appearance.as_ref().and_then(|a| match a.color_scheme {
             ColorScheme::Dark => Some(true),
             ColorScheme::Light => Some(false),
             ColorScheme::NoPreference => None,
         });
-        let accent = state.appearance.and_then(|a| a.accent).map(|(r, g, b)| {
+        let accent = state.appearance.as_ref().and_then(|a| a.accent).map(|(r, g, b)| {
             let c = |v: f32| (v * 255.0).round() as u8;
             Color(c(r), c(g), c(b))
         });
@@ -43,7 +44,10 @@ fn publish(host: &ShellHost) {
         set("name", string(&p.name));
         set("dark", Value::Bool(p.dark));
         set("has-preference", Value::Bool(prefers_dark.is_some()));
-        set("high-contrast", Value::Bool(state.appearance.is_some_and(|a| a.high_contrast)));
+        set(
+            "high-contrast",
+            Value::Bool(state.appearance.as_ref().is_some_and(|a| a.high_contrast)),
+        );
         for (role, c) in [
             ("background", p.background),
             ("surface", p.surface),
@@ -61,7 +65,12 @@ fn publish(host: &ShellHost) {
         ] {
             set(role, color(c));
         }
-        set("font-family", string(&state.config.font_family));
+        let font_family = if state.config.font_family.is_empty() {
+            state.appearance.as_ref().and_then(|a| a.font_family.as_deref()).unwrap_or_default()
+        } else {
+            state.config.font_family.as_str()
+        };
+        set("font-family", string(font_family));
         set("font-size", Value::Number(state.config.font_size.into()));
         set("radius", Value::Number(state.config.radius.into()));
     });
@@ -98,7 +107,7 @@ pub fn install(host: &Rc<ShellHost>) {
         spawn_watcher("theme", move || {
             portal
                 .watch(|appearance| {
-                    let appearance = *appearance;
+                    let appearance = appearance.clone();
                     host::post(move |host| {
                         STATE.with(|s| s.borrow_mut().appearance = Some(appearance));
                         publish(host);

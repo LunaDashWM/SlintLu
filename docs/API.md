@@ -467,7 +467,7 @@ The colour theme: a built-in palette (or pywal colours) chosen by the desktop's 
 | `blue` | `color` | read = `#89b4fa` |  |
 | `magenta` | `color` | read = `#cba6f7` |  |
 | `cyan` | `color` | read = `#94e2d5` |  |
-| `font-family` | `string` | read | Empty means the default font. |
+| `font-family` | `string` | read | theme.json's font-family, else the desktop's interface font (portal); empty means the default font. |
 | `font-size` | `length` | read = `13px` |  |
 | `radius` | `length` | read = `10px` |  |
 | `set-mode(mode: string)` | callback | call | "auto" (follow the desktop), "dark" or "light", for this session. |
