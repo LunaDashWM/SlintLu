@@ -56,6 +56,7 @@ A wlr-layer-shell surface: bars, docks, wallpapers, overlays, notifications … 
 | `margin-bottom` | `length` | set = `0px` |  |
 | `margin-left` | `length` | set = `0px` |  |
 | `keyboard-mode` | `KeyboardMode` | set = `KeyboardMode.none` | Whether the panel can take keyboard focus. |
+| `background-blur` | `bool` | set = `false` | Ask the compositor to blur what is behind the panel (ext-background-effect-v1). Ignored where the compositor does not support it. |
 | `show-on` | `[string]` | set = `[]` | Connector names of the screens to appear on, e.g. ["DP-1"]. Empty means all screens. |
 | `shown` | `bool` | set = `true` | Whether the panel is mapped. Toggle it to build popups, menus and drawers. |
 | `ready()` | callback | call | Runs once SlintLu has connected the services (and set `Shell.screen`). `init` runs too early for that: call service callbacks such as `Shared.set-string` from here instead. |
@@ -648,6 +649,7 @@ What a PanelWindow reports to the runtime. Set the PanelWindow properties instea
 | `margin-bottom` | `length` |  |  |
 | `margin-left` | `length` |  |  |
 | `keyboard-mode` | `KeyboardMode` |  |  |
+| `background-blur` | `bool` |  |  |
 | `show-on` | `[string]` |  |  |
 | `shown` | `bool` |  |  |
 

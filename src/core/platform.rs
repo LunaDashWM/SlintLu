@@ -73,6 +73,9 @@ impl WaylandPlatform {
             clipboard: crate::clipboard::ClipboardState::new(&globals, &qh),
             clipboard_history: crate::clipboard::ClipboardHistory::new(&globals, &qh),
             fractional_scaling: crate::window::scale::FractionalScaling::bind(&globals, &qh),
+            background_effects: crate::window::background_effect::BackgroundEffects::bind(
+                &globals, &qh,
+            ),
             idle: crate::idle::IdleState::new(&globals, &qh),
             renderer: config.renderer,
             failed_renderers: Default::default(),
