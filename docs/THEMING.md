@@ -18,6 +18,9 @@ Roles: `background`, `surface`, `surface-alt`, `border`, `text`, `text-muted`, `
 
 By default the theme follows the desktop's light / dark preference and accent colour (from the
 XDG desktop portal, e.g. `gsettings set org.gnome.desktop.interface color-scheme prefer-dark`).
+`font-family` is `theme.json`'s `font-family` when it sets one, else the desktop's interface font
+(`org.gnome.desktop.interface font-name` through the portal, e.g. "Adwaita Sans 11" gives
+"Adwaita Sans"), else empty for Slint's default font. It follows changes of the desktop setting.
 
 ## theme.json
 
