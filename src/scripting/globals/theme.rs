@@ -27,14 +27,19 @@ fn color(c: Color) -> Value {
     Value::Brush(SlintColor::from_rgb_u8(c.0, c.1, c.2).into())
 }
 
+/// The desktop portal's dark-mode preference, if it states one.
+fn desktop_prefers_dark(state: &ThemeState) -> Option<bool> {
+    state.appearance.as_ref().and_then(|a| match a.color_scheme {
+        ColorScheme::Dark => Some(true),
+        ColorScheme::Light => Some(false),
+        ColorScheme::NoPreference => None,
+    })
+}
+
 fn publish(host: &ShellHost) {
     STATE.with(|state| {
         let state = state.borrow();
-        let prefers_dark = state.appearance.as_ref().and_then(|a| match a.color_scheme {
-            ColorScheme::Dark => Some(true),
-            ColorScheme::Light => Some(false),
-            ColorScheme::NoPreference => None,
-        });
+        let prefers_dark = desktop_prefers_dark(&state);
         let accent = state.appearance.as_ref().and_then(|a| a.accent).map(|(r, g, b)| {
             let c = |v: f32| (v * 255.0).round() as u8;
             Color(c(r), c(g), c(b))
@@ -137,11 +142,12 @@ pub fn install(host: &Rc<ShellHost>) {
         "set-palette",
         Rc::new(move |args| {
             if let (Some(name), Some(host)) = (string_arg(args, 0), weak.upgrade()) {
-                let dark = matches!(host.global_property("Theme", "dark"), Some(Value::Bool(true)));
+                // The slot follows the mode, not whether the current palette is dark: after
+                // choosing a light palette in dark mode, the next choice must replace it.
                 STATE.with(|s| {
                     let mut s = s.borrow_mut();
-                    s.config.pywal = false;
-                    if dark { s.config.dark = name } else { s.config.light = name }
+                    let prefers_dark = desktop_prefers_dark(&s);
+                    theme::choose_palette(&mut s.config, name, prefers_dark);
                 });
                 publish(&host);
             }

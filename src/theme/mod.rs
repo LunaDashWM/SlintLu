@@ -5,5 +5,5 @@ mod config;
 mod palette;
 mod pywal;
 
-pub use config::{ThemeConfig, resolve};
+pub use config::{ThemeConfig, choose_palette, resolve, uses_dark_slot};
 pub use palette::{Color, Palette, preset, presets};

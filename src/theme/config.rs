@@ -91,17 +91,33 @@ fn apply_override(palette: &mut Palette, role: &str, color: Color) {
     *slot = color;
 }
 
+/// Whether the mode selects the `dark` palette slot: "dark", "light", or else the desktop's
+/// preference (dark without one). The chosen palette itself may be light either way.
+pub fn uses_dark_slot(config: &ThemeConfig, desktop_prefers_dark: Option<bool>) -> bool {
+    match config.mode.as_str() {
+        "dark" => true,
+        "light" => false,
+        _ => desktop_prefers_dark.unwrap_or(true),
+    }
+}
+
+/// Puts a palette in the slot the current mode reads, so choosing it always shows it.
+pub fn choose_palette(config: &mut ThemeConfig, name: String, desktop_prefers_dark: Option<bool>) {
+    config.pywal = false;
+    if uses_dark_slot(config, desktop_prefers_dark) {
+        config.dark = name;
+    } else {
+        config.light = name;
+    }
+}
+
 /// The palette to use given the configuration, the desktop's dark-mode preference and accent.
 pub fn resolve(
     config: &ThemeConfig,
     desktop_prefers_dark: Option<bool>,
     desktop_accent: Option<Color>,
 ) -> Palette {
-    let dark = match config.mode.as_str() {
-        "dark" => true,
-        "light" => false,
-        _ => desktop_prefers_dark.unwrap_or(true),
-    };
+    let dark = uses_dark_slot(config, desktop_prefers_dark);
     let named = if dark { &config.dark } else { &config.light };
     let fallback = if dark { "catppuccin-mocha" } else { "catppuccin-latte" };
     let mut palette = config
@@ -167,6 +183,19 @@ mod tests {
         let palette = resolve(&config, Some(true), None);
         assert_eq!(palette.name, "mine");
         assert_eq!(palette.background, Color(0x11, 0x13, 0x18));
+    }
+
+    #[test]
+    fn every_chosen_palette_shows() {
+        // A light palette in dark mode must not move later choices to the light slot.
+        let mut config = ThemeConfig { mode: "dark".into(), ..ThemeConfig::default() };
+        choose_palette(&mut config, "gruvbox-light".into(), None);
+        assert_eq!(resolve(&config, None, None).name, "gruvbox-light");
+        choose_palette(&mut config, "nord".into(), None);
+        assert_eq!(resolve(&config, None, None).name, "nord");
+        let mut auto = ThemeConfig::default();
+        choose_palette(&mut auto, "nord".into(), Some(false));
+        assert_eq!(resolve(&auto, Some(false), None).name, "nord");
     }
 
     #[test]

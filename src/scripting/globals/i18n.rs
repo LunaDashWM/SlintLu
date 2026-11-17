@@ -46,10 +46,13 @@ pub fn install(host: &Rc<ShellHost>) {
         "set-language",
         Rc::new(move |args| {
             let language = string_arg(args, 0).unwrap_or_default();
+            // An empty LANGUAGE makes gettext fall back to LC_MESSAGES/LANG, so "" (the
+            // untranslated texts) would still show the system language. "C" stops the lookup.
+            let gettext_language = if language.is_empty() { "C" } else { language.as_str() };
             // SAFETY: gettext reads LANGUAGE on every lookup and offers no other way to switch
             // languages at runtime. SlintLu's own threads never read the environment after
             // startup, so nothing races with this write.
-            unsafe { std::env::set_var("LANGUAGE", &language) };
+            unsafe { std::env::set_var("LANGUAGE", gettext_language) };
             slint::update_all_translations();
             if let Some(host) = weak.upgrade() {
                 host.set_global("I18n", "language", string(&language));
