@@ -17,6 +17,11 @@ export global Shell {
 
     // Runs a command line through `sh -c`, detached from the shell.
     callback exec(command: string);
+    // Starts a program with arguments, detached from the shell and without a shell: the line is
+    // split into words (quotes and backslashes as in sh, a leading ~/ is the home directory)
+    // and nothing in it is evaluated, so $VARS, globs, pipes and ; reach the program as text.
+    // Use it for commands users type.
+    callback run(command: string);
     // An environment variable of the shell process ("" when unset).
     pure callback env(name: string) -> string;
     // Reloads the shell configuration.

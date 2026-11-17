@@ -22,7 +22,7 @@ An ordinary application window (settings, dialogs …), shown once.
 
 ### Icon (inherits `Image`)
 
-One of SlintLu's stroke icons by name, tinted with `color`. Names: apps, arrow-left, arrow-right, arrow-up, battery, battery-charging, bell, bell-off, bluetooth, brightness, calendar, check, chevron-down, chevron-left, chevron-right, clipboard, close, coffee, cpu, dashboard, diamond, disk, dock, document, download, enter, ethernet, eye, eye-off, file, folder, globe, grid, home, image, info, keyboard, language, list, lock, logout, maximize, memory, mic, minus, monitor, moon, music, network, next, palette, panel, pause, play, plus, power, previous, reboot, screenshot, search, settings, sleep, sun, terminal, thermometer, trash, usb, user, video, volume, volume-low, volume-mute, warning, wifi, wifi-off, window, workspace. Unknown names show "info".
+One of SlintLu's stroke icons by name, tinted with `color`. Names: apps, arrow-down, arrow-left, arrow-right, arrow-up, battery, battery-charging, bell, bell-off, bluetooth, brightness, calendar, check, chevron-down, chevron-left, chevron-right, clipboard, close, coffee, cpu, dashboard, diamond, disk, dock, document, download, edit, enter, ethernet, eye, eye-off, file, folder, globe, grid, home, image, info, keyboard, language, list, lock, logout, maximize, memory, mic, minus, monitor, moon, music, network, next, palette, panel, pause, play, plus, power, previous, reboot, screenshot, search, settings, sleep, sun, terminal, thermometer, trash, usb, user, video, volume, volume-low, volume-mute, warning, wifi, wifi-off, window, workspace. Unknown names show "info".
 
 | Member | Type | Access | Description |
 |---|---|---|---|
@@ -364,6 +364,9 @@ State shared by all windows of the shell. Globals you define yourself exist once
 | `set-list(key: string, values: [string])` | callback | call |  |
 | `list-add(key: string, value: string)` | callback | call | Appends a value (if missing) / removes every occurrence. |
 | `list-remove(key: string, value: string)` | callback | call |  |
+| `list-insert(key: string, index: int, value: string)` | callback | call | Inserts a value before a position (duplicates allowed; past the end or negative appends). |
+| `list-move(key: string, from: int, to: int)` | callback | call | Moves the value at `from` to position `to` (clamped to the list). |
+| `list-remove-at(key: string, index: int)` | callback | call | Removes the value at one position. |
 
 ### Shell
 
@@ -378,6 +381,7 @@ Information about the running shell and actions it can perform.
 | `version` | `string` | read |  |
 | `resources` | `string` | read | Directory of SlintLu's shared assets (res/ in the SlintLu repository), e.g. for Files.image(Shell.resources + "/icons/wifi.svg"). Icons are easier through `Icon`. |
 | `exec(command: string)` | callback | call | Runs a command line through `sh -c`, detached from the shell. |
+| `run(command: string)` | callback | call | Starts a program with arguments, detached from the shell and without a shell: the line is split into words (quotes and backslashes as in sh, a leading ~/ is the home directory) and nothing in it is evaluated, so $VARS, globs, pipes and ; reach the program as text. Use it for commands users type. |
 | `env(name: string)` | callback → `string` | call | An environment variable of the shell process ("" when unset). |
 | `reload()` | callback | call | Reloads the shell configuration. |
 | `quit()` | callback | call | Exits SlintLu. |
@@ -402,6 +406,9 @@ Settings that survive restarts, stored per shell in $XDG_STATE_HOME/slintlu. Rea
 | `set-list(key: string, values: [string])` | callback | call |  |
 | `list-add(key: string, value: string)` | callback | call | Appends a value (if missing) / removes every occurrence. |
 | `list-remove(key: string, value: string)` | callback | call |  |
+| `list-insert(key: string, index: int, value: string)` | callback | call | Inserts a value before a position (duplicates allowed; past the end or negative appends). |
+| `list-move(key: string, from: int, to: int)` | callback | call | Moves the value at `from` to position `to` (clamped to the list). |
+| `list-remove-at(key: string, index: int)` | callback | call | Removes the value at one position. |
 
 ### Switcher
 
