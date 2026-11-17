@@ -38,8 +38,11 @@ pub fn info() -> Result<(), String> {
     println!("icon theme: {}", slintlu::icons::default_theme_name());
     println!("language: {}", slintlu::i18n::current_language().unwrap_or_else(|| "default".into()));
 
-    slintlu::init(PlatformConfig { renderer: RendererKind::Software })
+    slintlu::init(PlatformConfig { renderer: RendererKind::Software, ..Default::default() })
         .map_err(|e| e.to_string())?;
+    if let Some(backend) = slintlu::active_backend() {
+        println!("display server: {backend}");
+    }
 
     section("Outputs");
     for o in slintlu::outputs() {

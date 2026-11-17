@@ -36,7 +36,8 @@ slint::slint! {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let renderer = std::env::var("SLINTLU_RENDERER").unwrap_or_default().parse()?;
-    slintlu::init(PlatformConfig { renderer })?;
+    let backend = std::env::var("SLINTLU_BACKEND").unwrap_or_default().parse()?;
+    slintlu::init(PlatformConfig { renderer, backend })?;
 
     eprintln!("outputs: {:?}", slintlu::outputs());
     let mut bars = Vec::new();

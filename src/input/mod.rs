@@ -6,4 +6,5 @@ mod pointer;
 mod seat;
 
 pub(crate) use keyboard::ModifierKeys;
+pub(crate) use pointer::PIXELS_PER_SCROLL_STEP;
 pub(crate) use seat::SeatDevices;

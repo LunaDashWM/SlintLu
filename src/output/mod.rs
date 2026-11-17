@@ -91,17 +91,27 @@ impl OutputHandler for State {
     }
 }
 
-/// The outputs currently known to the compositor connection. Empty before [`crate::init`].
+/// The outputs currently known to the compositor or X server. Empty before [`crate::init`].
 pub fn outputs() -> Vec<OutputInfo> {
-    context::current()
-        .map(|ctx| ctx.outputs.borrow().iter().map(|(info, _)| info.clone()).collect())
-        .unwrap_or_default()
+    if let Some(ctx) = context::current() {
+        return ctx.outputs.borrow().iter().map(|(info, _)| info.clone()).collect();
+    }
+    #[cfg(feature = "x11")]
+    if let Some(ctx) = crate::x11::context::current() {
+        return ctx.outputs.borrow().iter().map(|(info, _)| info.clone()).collect();
+    }
+    Vec::new()
 }
 
 /// Registers a callback run on the Slint event loop whenever an output is added, removed or
 /// changes (resolution, scale …). Call [`outputs`] inside it to get the new list.
 pub fn on_outputs_changed(callback: impl Fn() + 'static) {
     if let Some(ctx) = context::current() {
+        ctx.output_listeners.borrow_mut().push(Rc::new(callback));
+        return;
+    }
+    #[cfg(feature = "x11")]
+    if let Some(ctx) = crate::x11::context::current() {
         ctx.output_listeners.borrow_mut().push(Rc::new(callback));
     }
 }

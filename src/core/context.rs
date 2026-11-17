@@ -47,10 +47,10 @@ pub(crate) struct Context {
     pub lock_listeners: RefCell<Vec<LockListener>>,
     /// Shared EGL display: `None` until first use, `Some(None)` if initialisation failed.
     #[cfg(feature = "opengl")]
-    pub egl: RefCell<Option<Option<Rc<crate::render::egl::EglDisplay>>>>,
+    pub egl: crate::render::egl::SharedEgl,
     /// Shared wgpu device, with the same states as `egl`.
     #[cfg(feature = "vulkan")]
-    pub gpu: RefCell<Option<Option<Rc<crate::render::gpu::GpuContext>>>>,
+    pub gpu: crate::render::gpu::SharedGpu,
 }
 
 impl Context {

@@ -29,7 +29,7 @@ impl ModifierKeys {
     }
 
     /// Updates the state from a key Slint is about to receive.
-    fn track(&mut self, text: &str, pressed: bool) {
+    pub(crate) fn track(&mut self, text: &str, pressed: bool) {
         let is = |keys: [Key; 2]| keys.into_iter().any(|k| SharedString::from(k) == text);
         if is([Key::Shift, Key::ShiftR]) {
             self.shift = pressed;
@@ -59,7 +59,7 @@ impl State {
             log::debug!("key event without a focused window: {:?}", event.keysym);
             return;
         };
-        let Some(text) = key_text(&event) else { return };
+        let Some(text) = key_text(event.keysym, event.utf8.as_deref()) else { return };
         log::trace!("key {:?} -> {text:?}", event.keysym);
         match kind {
             KeyKind::Press | KeyKind::Repeat => self.modifier_keys.track(&text, true),

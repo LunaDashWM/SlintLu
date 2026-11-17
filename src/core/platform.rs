@@ -17,17 +17,10 @@ use smithay_client_toolkit::shm::Shm;
 use super::context::{self, Context};
 use super::proxy::{LoopMessage, Proxy};
 use super::state::State;
-use crate::render::RendererKind;
+use crate::platform::PlatformConfig;
 use crate::window::WaylandWindow;
 
-/// Options for [`WaylandPlatform::new`].
-#[derive(Clone, Debug, Default)]
-pub struct PlatformConfig {
-    /// The renderer new windows are created with.
-    pub renderer: RendererKind,
-}
-
-/// The Slint platform for Wayland. Usually installed with [`init`].
+/// The Slint platform for Wayland. Usually installed with [`crate::init`].
 pub struct WaylandPlatform {
     ctx: Rc<Context>,
     event_loop: RefCell<Option<EventLoop<'static, State>>>,
@@ -192,18 +185,4 @@ impl Platform for WaylandPlatform {
     fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
         Some(Box::new(Proxy { sender: self.sender.clone() }))
     }
-}
-
-/// Creates a [`WaylandPlatform`] and installs it as the Slint platform for this process.
-pub fn init(config: PlatformConfig) -> Result<(), PlatformError> {
-    let platform = WaylandPlatform::new(config)?;
-    slint::platform::set_platform(Box::new(platform))
-        .map_err(|e| PlatformError::from(format!("cannot install the Slint platform: {e}")))
-}
-
-/// Returns the Wayland side of a Slint window created by this platform, which allows changing
-/// its [`SurfaceRole`](crate::SurfaceRole) before it is shown.
-pub fn window_for(window: &slint::Window) -> Option<Rc<WaylandWindow>> {
-    let ctx = context::current()?;
-    ctx.live_windows().into_iter().find(|w| std::ptr::eq(w.slint_window(), window))
 }

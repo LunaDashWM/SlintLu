@@ -1,6 +1,6 @@
 //! Vulkan rendering through wgpu, for Slint's FemtoVG wgpu renderer.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::ffi::c_void;
 use std::ptr::NonNull;
 use std::rc::Rc;
@@ -10,10 +10,41 @@ use raw_window_handle::{
 };
 use slint::platform::femtovg_renderer::FemtoVGWGPURenderer;
 use slint::wgpu_30::wgpu;
-use smithay_client_toolkit::reexports::client::Proxy;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
+use smithay_client_toolkit::reexports::client::{Connection, Proxy};
 
-use crate::core::context::Context;
+/// The shared wgpu device of a platform: `None` until first use, `Some(None)` if
+/// initialisation failed.
+pub(crate) type SharedGpu = RefCell<Option<Option<Rc<GpuContext>>>>;
+
+/// The native window a wgpu surface presents to. It must outlive the [`GpuWindow`].
+pub(crate) struct NativeWindow {
+    display: RawDisplayHandle,
+    window: RawWindowHandle,
+}
+
+impl NativeWindow {
+    pub fn wayland(conn: &Connection, surface: &WlSurface) -> Result<Self, String> {
+        let display =
+            NonNull::new(conn.backend().display_ptr() as *mut c_void).ok_or("null wl_display")?;
+        let window = NonNull::new(surface.id().as_ptr() as *mut c_void).ok_or("null wl_surface")?;
+        Ok(Self {
+            display: RawDisplayHandle::Wayland(WaylandDisplayHandle::new(display)),
+            window: RawWindowHandle::Wayland(WaylandWindowHandle::new(window)),
+        })
+    }
+
+    #[cfg(feature = "x11")]
+    pub fn xcb(connection: *mut c_void, screen: i32, window: u32) -> Result<Self, String> {
+        use raw_window_handle::{XcbDisplayHandle, XcbWindowHandle};
+        let connection = NonNull::new(connection).ok_or("null xcb connection")?;
+        let window = std::num::NonZeroU32::new(window).ok_or("null X window")?;
+        Ok(Self {
+            display: RawDisplayHandle::Xcb(XcbDisplayHandle::new(Some(connection), screen)),
+            window: RawWindowHandle::Xcb(XcbWindowHandle::new(window)),
+        })
+    }
+}
 
 /// Instance, adapter, device and queue shared by every window.
 pub(crate) struct GpuContext {
@@ -25,46 +56,39 @@ pub(crate) struct GpuContext {
 
 fn create_surface(
     instance: &wgpu::Instance,
-    ctx: &Context,
-    surface: &WlSurface,
+    native: &NativeWindow,
 ) -> Result<wgpu::Surface<'static>, String> {
-    let display =
-        NonNull::new(ctx.conn.backend().display_ptr() as *mut c_void).ok_or("null wl_display")?;
-    let window = NonNull::new(surface.id().as_ptr() as *mut c_void).ok_or("null wl_surface")?;
     let target = wgpu::SurfaceTargetUnsafe::RawHandle {
-        raw_display_handle: Some(RawDisplayHandle::Wayland(WaylandDisplayHandle::new(display))),
-        raw_window_handle: RawWindowHandle::Wayland(WaylandWindowHandle::new(window)),
+        raw_display_handle: Some(native.display),
+        raw_window_handle: native.window,
     };
-    // SAFETY: the connection lives as long as the platform, and the wl_surface outlives the
-    // wgpu surface because `GpuWindow` is dropped before the window's role object.
+    // SAFETY: the connection lives as long as the platform, and windows drop their
+    // `GpuWindow` before the native window (field order in `WaylandWindow` and `X11Window`).
     unsafe { instance.create_surface_unsafe(target) }.map_err(|e| e.to_string())
 }
 
 impl GpuContext {
     /// Returns the shared context, creating it (and the first window's surface) on first use.
     fn shared(
-        ctx: &Context,
-        surface: &WlSurface,
+        cache: &SharedGpu,
+        native: &NativeWindow,
     ) -> Result<(Rc<Self>, wgpu::Surface<'static>), String> {
-        let cached = ctx.gpu.borrow().clone();
+        let cached = cache.borrow().clone();
         if let Some(gpu) = cached {
             let gpu = gpu.ok_or("Vulkan initialisation failed earlier")?;
-            let wgpu_surface = create_surface(&gpu.instance, ctx, surface)?;
+            let wgpu_surface = create_surface(&gpu.instance, native)?;
             return Ok((gpu, wgpu_surface));
         }
-        let result = Self::new(ctx, surface);
-        *ctx.gpu.borrow_mut() = Some(result.as_ref().ok().map(|(gpu, _)| gpu.clone()));
+        let result = Self::new(native);
+        *cache.borrow_mut() = Some(result.as_ref().ok().map(|(gpu, _)| gpu.clone()));
         result
     }
 
-    fn new(
-        ctx: &Context,
-        surface: &WlSurface,
-    ) -> Result<(Rc<Self>, wgpu::Surface<'static>), String> {
+    fn new(native: &NativeWindow) -> Result<(Rc<Self>, wgpu::Surface<'static>), String> {
         let mut descriptor = wgpu::InstanceDescriptor::new_without_display_handle_from_env();
         descriptor.backends = wgpu::Backends::VULKAN;
         let instance = wgpu::Instance::new(descriptor);
-        let wgpu_surface = create_surface(&instance, ctx, surface)?;
+        let wgpu_surface = create_surface(&instance, native)?;
 
         // Prefer a real GPU; fall back to a software implementation (e.g. lavapipe in virtual
         // machines and CI) when no hardware adapter can present to this surface.
@@ -135,8 +159,8 @@ pub(crate) struct GpuWindow {
 }
 
 impl GpuWindow {
-    pub fn new(ctx: &Context, wl_surface: &WlSurface) -> Result<Self, String> {
-        let (gpu, surface) = GpuContext::shared(ctx, wl_surface)?;
+    pub fn new(cache: &SharedGpu, native: &NativeWindow) -> Result<Self, String> {
+        let (gpu, surface) = GpuContext::shared(cache, native)?;
         let caps = surface.get_capabilities(&gpu.adapter);
         // FemtoVG blends in non-sRGB space; prefer a plain 8-bit format.
         let format = caps

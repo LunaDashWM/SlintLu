@@ -12,9 +12,9 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
-use slintlu::RendererKind;
+use slintlu::{Backend, RendererKind};
 
-/// Desktop shells written in the Slint language, for Wayland.
+/// Desktop shells written in the Slint language, for Wayland and X11.
 #[derive(Parser, Debug)]
 #[command(version, about, args_conflicts_with_subcommands = true)]
 pub struct Cli {
@@ -69,6 +69,10 @@ pub struct RunArgs {
     /// Renderer: auto, software, opengl or vulkan.
     #[arg(short, long, env = "SLINTLU_RENDERER", default_value = "auto")]
     renderer: RendererKind,
+
+    /// Display server: auto, wayland or x11.
+    #[arg(short, long, env = "SLINTLU_BACKEND", default_value = "auto")]
+    backend: Backend,
 
     /// Do not reload when configuration files change.
     #[arg(long)]

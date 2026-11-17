@@ -12,7 +12,11 @@ pub fn run(args: RunArgs) -> Result<(), String> {
     let compositor = Compositor::detect();
     log::info!("compositor: {compositor}, renderer: {}", args.renderer);
 
-    slintlu::init(PlatformConfig { renderer: args.renderer }).map_err(|e| e.to_string())?;
+    slintlu::init(PlatformConfig { renderer: args.renderer, backend: args.backend })
+        .map_err(|e| e.to_string())?;
+    if let Some(backend) = slintlu::active_backend() {
+        log::info!("display server: {backend}");
+    }
 
     let host = ShellHost::install(config.clone());
     globals::install(&host, &globals::ShellInfo { compositor });

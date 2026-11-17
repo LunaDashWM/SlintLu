@@ -3,7 +3,7 @@
 use slintlu::{PlatformConfig, RendererKind};
 
 pub fn outputs() -> Result<(), String> {
-    slintlu::init(PlatformConfig { renderer: RendererKind::Software })
+    slintlu::init(PlatformConfig { renderer: RendererKind::Software, ..Default::default() })
         .map_err(|e| e.to_string())?;
     for o in slintlu::outputs() {
         println!(

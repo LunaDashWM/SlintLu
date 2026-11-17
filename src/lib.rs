@@ -53,6 +53,7 @@ mod input;
 pub mod ipc;
 pub mod launcher;
 mod output;
+mod platform;
 mod render;
 pub mod security;
 mod shell;
@@ -62,11 +63,16 @@ pub mod theme;
 pub mod time;
 pub mod util;
 mod window;
+#[cfg(feature = "x11")]
+mod x11;
 
-pub use core::{PlatformConfig, WaylandPlatform, init, window_for};
+pub use core::WaylandPlatform;
 pub use output::{OutputInfo, on_outputs_changed, outputs};
+pub use platform::{Backend, PlatformConfig, ShellWindow, active_backend, init, window_for};
 pub use render::RendererKind;
 pub use shell::config::{
     Anchors, ExclusiveZone, KeyboardMode, Layer, LayerConfig, Margins, SurfaceRole,
 };
 pub use window::WaylandWindow;
+#[cfg(feature = "x11")]
+pub use x11::{X11Platform, X11Window};

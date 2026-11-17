@@ -39,8 +39,8 @@ pub(crate) struct FrameState {
 
 /// The Wayland side of a Slint window.
 ///
-/// Get it for a component with [`crate::window_for`] and choose its [`SurfaceRole`] before
-/// calling `show()`.
+/// Usually reached through [`crate::ShellWindow`] (see [`crate::window_for`]), which also sets
+/// its [`SurfaceRole`] before `show()`.
 pub struct WaylandWindow {
     // Field order matters: the renderer holds GPU surfaces that reference `wl_surface`, so it
     // must be dropped before the role object destroys the surface.
