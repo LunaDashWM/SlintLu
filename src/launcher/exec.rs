@@ -113,12 +113,22 @@ fn terminal() -> Vec<String> {
 /// terminal of everything launched from it. An interactive shell started by such a program
 /// (Electron applications read the login shell's environment this way) is stopped by SIGTTIN
 /// when it is not in the terminal's foreground process group, and the program hangs.
+///
+/// The shell may run at a raised priority (LunaDash's ananicy-cpp rule gives it nice -6);
+/// launched programs start at the normal priority instead of inheriting it, or a build
+/// started from a terminal would compete with the desktop again.
 pub fn detach(command: &mut Command) -> &mut Command {
-    // SAFETY: setsid is async-signal-safe and touches no memory of the parent.
+    // SAFETY: setsid, getpriority and setpriority are async-signal-safe system calls and
+    // touch no memory of the parent.
     unsafe {
         command.pre_exec(|| {
             if libc::setsid() < 0 {
                 return Err(std::io::Error::last_os_error());
+            }
+            // Raising the nice value back to 0 needs no privilege. getpriority also returns
+            // -1 on failure; resetting to 0 then is harmless.
+            if libc::getpriority(libc::PRIO_PROCESS, 0) < 0 {
+                libc::setpriority(libc::PRIO_PROCESS, 0, 0);
             }
             Ok(())
         })
