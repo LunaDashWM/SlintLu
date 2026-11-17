@@ -9,6 +9,10 @@ mod atoms;
 pub(crate) mod context;
 mod events;
 mod keymap;
+// Output geometry is shared with output.rs; the layer placement helpers (geometry, struts,
+// stacking) are not used until layer windows are placed instead of shown as normal windows.
+#[allow(dead_code)]
+mod layer;
 mod output;
 mod platform;
 mod render;

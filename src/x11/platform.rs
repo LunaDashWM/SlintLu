@@ -1,6 +1,6 @@
 //! The Slint [`Platform`] implementation for X11 and its event loop.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Instant;
 
@@ -77,8 +77,10 @@ impl X11Platform {
         }
 
         // The event loop watches a duplicate so that it never closes the connection's own fd.
-        let fd = rustix::io::dup(&conn).map_err(|e| format!("cannot watch the X connection: {e}"))?;
+        let fd =
+            rustix::io::dup(&conn).map_err(|e| format!("cannot watch the X connection: {e}"))?;
 
+        let scale = super::output::read_scale(&conn);
         let ctx = Rc::new(Context {
             conn,
             screen,
@@ -87,9 +89,17 @@ impl X11Platform {
             visual,
             randr,
             keymap: RefCell::new(keymap),
+            scale: Cell::new(scale),
+            // Windows draw with the software renderer for now (see the log above).
+            renderer: RendererKind::Software,
+            failed_renderers: Default::default(),
             windows: Default::default(),
             outputs: Default::default(),
             output_listeners: Default::default(),
+            #[cfg(feature = "opengl")]
+            egl: Default::default(),
+            #[cfg(feature = "vulkan")]
+            gpu: Default::default(),
         });
         super::output::refresh(&ctx);
 

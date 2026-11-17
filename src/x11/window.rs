@@ -151,6 +151,27 @@ impl X11Window {
         self.frame.scale.get()
     }
 
+    /// The outputs or the `Xft.dpi` scale changed. X11 has one scale for every window: take
+    /// the new one and draw again. Layer windows are shown as normal windows, so there is no
+    /// placement to update yet.
+    pub(crate) fn outputs_changed(&self) {
+        let scale = self.ctx.scale.get();
+        if self.frame.scale.replace(scale) != scale {
+            self.dispatch(WindowEvent::ScaleFactorChanged { scale_factor: scale });
+            if let Err(e) = self.set_min_size(self.frame.min_size.get()) {
+                log::warn!("cannot set the minimum window size: {e}");
+            }
+            if self.frame.shown.get() {
+                let (width, height) = self.physical_size();
+                let _ = self.ctx.conn.configure_window(
+                    self.xid,
+                    &ConfigureWindowAux::new().width(width).height(height),
+                );
+            }
+        }
+        self.frame.dirty.set(true);
+    }
+
     fn physical_size(&self) -> (u32, u32) {
         let (w, h) = self.frame.logical_size.get();
         let scale = self.frame.scale.get();
@@ -186,7 +207,8 @@ impl X11Window {
         }
         let (width, height) = self.physical_size();
         let conn = &self.ctx.conn;
-        let _ = conn.configure_window(self.xid, &ConfigureWindowAux::new().width(width).height(height));
+        let _ =
+            conn.configure_window(self.xid, &ConfigureWindowAux::new().width(width).height(height));
         let _ = conn.map_window(self.xid);
     }
 
