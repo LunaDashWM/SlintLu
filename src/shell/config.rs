@@ -116,6 +116,8 @@ pub struct LayerConfig {
     pub exclusive_zone: ExclusiveZone,
     pub margins: Margins,
     pub keyboard: KeyboardMode,
+    /// Ask the compositor to blur what is behind the surface (`ext-background-effect-v1`).
+    pub background_blur: bool,
     /// Wayland output (see [`crate::OutputInfo::id`]) to place the surface on, or the
     /// compositor's choice when `None`.
     ///
@@ -132,6 +134,7 @@ impl Default for LayerConfig {
             exclusive_zone: ExclusiveZone::Auto,
             margins: Margins::default(),
             keyboard: KeyboardMode::None,
+            background_blur: false,
             output: None,
         }
     }

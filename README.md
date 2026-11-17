@@ -14,7 +14,8 @@ core.
   reloaded on save; a broken edit keeps the running shell and prints diagnostics.
 - **Native Wayland** through smithay-client-toolkit, no winit:
   - `wlr-layer-shell` panels with anchors, margins, exclusive zones, keyboard modes, per-screen
-    instances and show/hide for popups and drawers;
+    instances and show/hide for popups and drawers; `background-blur` asks the compositor to
+    blur what is behind a panel (`ext-background-effect-v1`, where the compositor supports it);
   - `xdg-shell` windows for settings dialogs and the like;
   - multi-monitor with hot-plug, fractional scaling (`fractional-scale-v1` + viewporter),
     clipboard and primary selection, `cursor-shape-v1`, key repeat, virtual keyboards.

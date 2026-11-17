@@ -1,6 +1,7 @@
 //! [`WaylandWindow`]: the Slint window adapter backed by one `wl_surface`.
 
 mod adapter;
+pub(crate) mod background_effect;
 mod frame;
 mod lifecycle;
 pub(crate) mod scale;
@@ -54,6 +55,8 @@ pub struct WaylandWindow {
     frame: FrameState,
     /// Fractional scaling objects; `None` means integer `wl_surface` buffer scaling.
     scaling: Option<scale::SurfaceScaling>,
+    /// Background blur object, created the first time a panel asks for blur.
+    blur: RefCell<Option<background_effect::SurfaceBlur>>,
 }
 
 impl WaylandWindow {
@@ -76,6 +79,7 @@ impl WaylandWindow {
                 title: RefCell::default(),
                 frame: FrameState { scale: Cell::new(1.0), ..Default::default() },
                 scaling,
+                blur: RefCell::default(),
             }
         });
         ctx.windows.borrow_mut().push(Rc::downgrade(&this));

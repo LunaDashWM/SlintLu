@@ -125,6 +125,7 @@ pub fn spec_from_struct(settings: &Struct) -> PanelSpec {
                 left: px("margin-left"),
             },
             keyboard,
+            background_blur: bool_field(settings, "background-blur"),
             output: None,
         },
         show_on: strings_field(settings, "show-on"),
@@ -158,6 +159,7 @@ mod tests {
             ("exclusive-zone", Value::Number(12.4)),
             ("margin-top", Value::Number(8.0)),
             ("keyboard-mode", enum_value("KeyboardMode", "on-demand")),
+            ("background-blur", Value::Bool(true)),
             ("show-on", Value::Model(show_on)),
             ("shown", Value::Bool(false)),
         ]));
@@ -167,6 +169,7 @@ mod tests {
         assert_eq!(spec.layer.exclusive_zone, ExclusiveZone::Fixed(12));
         assert_eq!(spec.layer.margins.top, 8);
         assert_eq!(spec.layer.keyboard, KeyboardMode::OnDemand);
+        assert!(spec.layer.background_blur);
         assert!(spec.shows_on("DP-1"));
         assert!(!spec.shows_on("HDMI-A-1"));
         assert!(!spec.shown);

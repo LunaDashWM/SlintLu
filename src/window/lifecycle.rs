@@ -118,6 +118,7 @@ impl WaylandWindow {
                 layer_surface,
                 config.exclusive_zone.resolve(config.anchors, width, height),
             );
+            self.update_blur(config.background_blur, (width, height));
         }
 
         if resized {
@@ -126,6 +127,20 @@ impl WaylandWindow {
             });
         }
         self.frame.dirty.set(true);
+    }
+
+    /// Sends the blur region for the configured size; applied with the next buffer commit.
+    fn update_blur(&self, wanted: bool, size: (u32, u32)) {
+        let mut blur = self.blur.borrow_mut();
+        if wanted {
+            let Some(effects) = self.ctx.background_effects.as_ref() else {
+                return;
+            };
+            blur.get_or_insert_with(|| effects.for_surface(&self.wl_surface, &self.ctx.qh))
+                .cover(&self.ctx.compositor, size);
+        } else if let Some(blur) = blur.as_ref() {
+            blur.clear();
+        }
     }
 
     /// Integer scale from `wl_surface.preferred_buffer_scale`; ignored when fractional scaling

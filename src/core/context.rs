@@ -32,6 +32,7 @@ pub(crate) struct Context {
     pub clipboard: crate::clipboard::ClipboardState,
     pub clipboard_history: crate::clipboard::ClipboardHistory,
     pub fractional_scaling: Option<crate::window::scale::FractionalScaling>,
+    pub background_effects: Option<crate::window::background_effect::BackgroundEffects>,
     pub idle: crate::idle::IdleState,
     pub renderer: RendererKind,
     /// Renderers that already failed for some window: later failures are logged at debug level.

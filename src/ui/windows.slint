@@ -27,6 +27,9 @@ export component PanelWindow inherits Window {
     in property <length> margin-left: 0px;
     // Whether the panel can take keyboard focus.
     in property <KeyboardMode> keyboard-mode: KeyboardMode.none;
+    // Ask the compositor to blur what is behind the panel (ext-background-effect-v1). Ignored
+    // where the compositor does not support it.
+    in property <bool> background-blur: false;
     // Connector names of the screens to appear on, e.g. ["DP-1"]. Empty means all screens.
     in property <[string]> show-on: [];
     // Whether the panel is mapped. Toggle it to build popups, menus and drawers.
@@ -46,6 +49,7 @@ export component PanelWindow inherits Window {
         margin-bottom: root.margin-bottom,
         margin-left: root.margin-left,
         keyboard-mode: root.keyboard-mode,
+        background-blur: root.background-blur,
         show-on: root.show-on,
         shown: root.shown,
     };
