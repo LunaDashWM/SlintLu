@@ -181,6 +181,7 @@ The compositor itself: its name, requests it sends to the shell (keyboard shortc
 | `language` | `string` | read | The desktop language chosen in the compositor (LunaDash), e.g. "zh_TW"; empty otherwise. |
 | `wallpapers` | `[WallpaperInfo]` | read | The compositor's wallpaper library (LunaDash): its folder plus the bundled wallpapers. |
 | `wallpaper-directory` | `string` | read |  |
+| `shortcuts` | `[ShortcutInfo]` | read | The compositor's keyboard shortcuts, sorted by action (LunaDash); empty otherwise. |
 | `wallpaper-categories` | `[string]` | read | The categories (subfolders) of the wallpaper library, sorted. |
 | `preferences-revision` | `int` | read | Increases when the compositor's preferences change; pass it to the preference-* readers. |
 | `filter-wallpapers(query: string, collection: string, category: string, kind: string, revision: int)` | callback → `[WallpaperInfo]` | call | The library entries matching a search: `collection` is "library" (all), "bundled" or "favorites"; `category` "" for all; `kind` "all", "image" or "video". Pass `wallpapers.length` (or any value that changes with the library) as `revision`. |
@@ -674,6 +675,15 @@ A monitor.
 | `width` | `int` |  |  |
 | `height` | `int` |  |  |
 | `scale` | `int` |  |  |
+
+### ShortcutInfo
+
+A keyboard shortcut of the compositor (LunaDash): its action, e.g. "closeWindow", and its keys, e.g. ["Meta", "Q"].
+
+| Member | Type | Access | Description |
+|---|---|---|---|
+| `action` | `string` |  |  |
+| `keys` | `[string]` |  |  |
 
 ### SwitcherEntry
 

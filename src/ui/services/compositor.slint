@@ -11,6 +11,12 @@ export struct WallpaperInfo {
     preview: string,
 }
 
+// A keyboard shortcut of the compositor (LunaDash): its action, e.g. "closeWindow", and its
+// keys, e.g. ["Meta", "Q"].
+export struct ShortcutInfo {
+    action: string,
+    keys: [string],
+}
 // The compositor itself: its name, requests it sends to the shell (keyboard shortcuts that
 // open shell UI) and compositor-specific commands.
 export global Compositor {
@@ -37,6 +43,8 @@ export global Compositor {
     // The compositor's wallpaper library (LunaDash): its folder plus the bundled wallpapers.
     in property <[WallpaperInfo]> wallpapers;
     in property <string> wallpaper-directory;
+    // The compositor's keyboard shortcuts, sorted by action (LunaDash); empty otherwise.
+    in property <[ShortcutInfo]> shortcuts;
     // The categories (subfolders) of the wallpaper library, sorted.
     in property <[string]> wallpaper-categories;
     // Increases when the compositor's preferences change; pass it to the preference-* readers.

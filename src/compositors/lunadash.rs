@@ -11,7 +11,8 @@ use serde_json::{Value, json};
 
 use super::Backend;
 use super::model::{
-    Action, DesktopState, SwitcherItem, SwitcherState, WallpaperEntry, Window, Workspace,
+    Action, DesktopState, Shortcut, SwitcherItem, SwitcherState, WallpaperEntry, Window,
+    Workspace,
 };
 use crate::util::uri::path_from_path_or_uri;
 
@@ -126,9 +127,40 @@ fn build_state(status: &Value) -> DesktopState {
             .unwrap_or_default(),
         language: status["language"].as_str().unwrap_or_default().to_owned(),
         session_ending: status["shutdown"].as_bool().unwrap_or(false),
+        shortcuts: shortcuts(&status["shortcuts"]),
     };
     state.normalize();
     state
+}
+
+/// LunaDash's shortcut bindings (`{"closeWindow": "Meta+Q", …}`), sorted by action.
+fn shortcuts(bindings: &Value) -> Vec<Shortcut> {
+    let mut list: Vec<Shortcut> = bindings
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter_map(|(action, keys)| {
+            let keys = keys.as_str()?;
+            (!keys.is_empty() && keys != "Disabled")
+                .then(|| Shortcut { action: action.clone(), keys: split_keys(keys) })
+        })
+        .collect();
+    list.sort_by(|a, b| a.action.cmp(&b.action));
+    list
+}
+
+/// `"Meta+Shift+S"` → `["Meta", "Shift", "S"]`; a `+` key stays one key (`"Meta++"`).
+fn split_keys(keys: &str) -> Vec<String> {
+    let (modifiers, key) = match keys.strip_suffix("++") {
+        Some(rest) => (rest, "+"),
+        None => keys.rsplit_once('+').unwrap_or(("", keys)),
+    };
+    modifiers
+        .split('+')
+        .filter(|part| !part.is_empty())
+        .chain(std::iter::once(key))
+        .map(str::to_owned)
+        .collect()
 }
 
 /// The entries of LunaDash's wallpaper library snapshot.
@@ -362,7 +394,9 @@ mod tests {
                 {"id": 9, "title": "hidden", "appId": "x", "workspace": 0, "mapped": false}
             ],
             "wallpaperImage": "file:///usr/share/backgrounds/Night%20Sky.png",
-            "language": "zh_TW"
+            "language": "zh_TW",
+            "shortcuts": {"screenshot": "Meta+Shift+S", "closeWindow": "Meta+Q",
+                          "widenColumn": "Meta++", "launchFiles": "Disabled"}
         });
         let state = build_state(&status);
         assert_eq!(state.workspaces.len(), 10);
@@ -373,6 +407,14 @@ mod tests {
         assert_eq!(state.focused_window().unwrap().title, "Zed");
         assert_eq!(state.wallpaper, "/usr/share/backgrounds/Night Sky.png");
         assert_eq!(state.language, "zh_TW");
+        let keys = |action: &str| {
+            state.shortcuts.iter().find(|s| s.action == action).map(|s| s.keys.join(" "))
+        };
+        assert_eq!(state.shortcuts.len(), 3);
+        assert_eq!(state.shortcuts[0].action, "closeWindow");
+        assert_eq!(keys("screenshot").as_deref(), Some("Meta Shift S"));
+        assert_eq!(keys("widenColumn").as_deref(), Some("Meta +"));
+        assert_eq!(keys("launchFiles"), None);
         assert!(!state.session_ending);
         assert!(build_state(&json!({"shutdown": true})).session_ending);
     }

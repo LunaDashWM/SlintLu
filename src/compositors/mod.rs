@@ -13,8 +13,8 @@ use std::sync::Arc;
 pub use detect::Compositor;
 pub use lunadash::LunaDash;
 pub use model::{
-    Action, CompositorRequest, DesktopState, SwitcherItem, SwitcherState, WallpaperEntry, Window,
-    Workspace,
+    Action, CompositorRequest, DesktopState, Shortcut, SwitcherItem, SwitcherState,
+    WallpaperEntry, Window, Workspace,
 };
 
 /// A compositor's IPC connection.

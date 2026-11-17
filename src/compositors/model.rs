@@ -38,6 +38,14 @@ pub struct CompositorRequest {
     pub argument: String,
 }
 
+/// A keyboard shortcut the compositor binds: its action and its keys, e.g. `closeWindow` and
+/// `["Meta", "Q"]`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Shortcut {
+    pub action: String,
+    pub keys: Vec<String>,
+}
+
 /// Everything a shell typically shows about the desktop.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DesktopState {
@@ -63,6 +71,9 @@ pub struct DesktopState {
     pub language: String,
     /// The compositor is ending the session and asks its shell to exit (LunaDash).
     pub session_ending: bool,
+    /// The compositor's keyboard shortcuts, sorted by action, for compositors that report them
+    /// (LunaDash). Disabled shortcuts are left out.
+    pub shortcuts: Vec<Shortcut>,
 }
 
 impl DesktopState {
