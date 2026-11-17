@@ -9,16 +9,17 @@ pub fn normalize_language(locale: &str) -> Option<String> {
     }
 }
 
-/// The first language from `LANGUAGE`, `LC_ALL`, `LC_MESSAGES` or `LANG`.
+/// The first language from `LANGUAGE`, `LC_ALL`, `LC_MESSAGES` or `LANG`. `LANGUAGE=C` (how
+/// `I18n.set-language("")` selects the untranslated texts) means no language, as for gettext.
 pub fn current_language() -> Option<String> {
     language_from(|name| std::env::var(name).ok())
 }
 
 fn language_from(var: impl Fn(&str) -> Option<String>) -> Option<String> {
     if let Some(list) = var("LANGUAGE")
-        && let Some(first) = list.split(':').find_map(normalize_language)
+        && let Some(first) = list.split(':').map(str::trim).find(|entry| !entry.is_empty())
     {
-        return Some(first);
+        return normalize_language(first);
     }
     ["LC_ALL", "LC_MESSAGES", "LANG"]
         .iter()
@@ -115,5 +116,11 @@ mod tests {
             Some("ja_JP")
         );
         assert_eq!(language_from(env(&[("LANG", "C")])), None);
+        // The untranslated texts chosen at runtime win over the system language.
+        assert_eq!(language_from(env(&[("LANGUAGE", "C"), ("LANG", "zh_TW.UTF-8")])), None);
+        assert_eq!(
+            language_from(env(&[("LANGUAGE", ""), ("LANG", "zh_TW.UTF-8")])).as_deref(),
+            Some("zh_TW")
+        );
     }
 }
