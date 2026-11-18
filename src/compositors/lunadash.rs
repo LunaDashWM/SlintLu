@@ -217,6 +217,11 @@ fn build_switcher(snapshot: &Value) -> SwitcherState {
                 focused: item["focused"].as_bool().unwrap_or(false),
                 minimized: item["minimized"].as_bool().unwrap_or(false),
                 apps: windows.into_iter().flatten().map(|w| text(w, "appId")).collect(),
+                preview: item["thumbnail"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .map(|uri| path_from_path_or_uri(uri).to_string_lossy().into_owned())
+                    .unwrap_or_default(),
             })
         })
         .collect::<Vec<_>>();

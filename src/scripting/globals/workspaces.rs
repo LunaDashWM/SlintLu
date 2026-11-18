@@ -191,7 +191,7 @@ fn switcher_entry(item: &SwitcherItem) -> Value {
         Value::Image(
             super::apps::icon_for(app_id)
                 .filter(|i| i.size().width > 0)
-                .unwrap_or_else(|| super::icons::icon(&app_id.to_lowercase(), 48)),
+                .unwrap_or_else(|| super::apps::theme_icon(app_id)),
         )
     };
     struct_value([
@@ -203,11 +203,46 @@ fn switcher_entry(item: &SwitcherItem) -> Value {
         ("focused", Value::Bool(item.focused)),
         ("minimized", Value::Bool(item.minimized)),
         ("icons", list_value(item.apps.iter().map(|a| icon(a)))),
+        ("preview", Value::Image(preview(&item.preview))),
     ])
 }
 
+thread_local! {
+    // Window pictures by file: each switch writes new files, so a path is never reused.
+    static PREVIEWS: RefCell<std::collections::HashMap<String, slint::Image>> = RefCell::default();
+    // The entries last shown: moving the selection must not rebuild the tiles.
+    static SHOWN: RefCell<(bool, Vec<SwitcherItem>)> = RefCell::default();
+}
+
+fn preview(path: &str) -> slint::Image {
+    if path.is_empty() {
+        return slint::Image::default();
+    }
+    PREVIEWS.with(|cache| {
+        cache
+            .borrow_mut()
+            .entry(path.to_owned())
+            .or_insert_with(|| slint::Image::load_from_path(path.as_ref()).unwrap_or_default())
+            .clone()
+    })
+}
+
 fn publish_switcher(host: &ShellHost, state: &SwitcherState) {
-    host.set_global("Switcher", "entries", list_value(state.items.iter().map(switcher_entry)));
+    let changed = SHOWN.with(|shown| {
+        let mut shown = shown.borrow_mut();
+        let changed = shown.0 != state.workspaces || shown.1 != state.items;
+        if changed {
+            *shown = (state.workspaces, state.items.clone());
+        }
+        changed
+    });
+    if changed {
+        host.set_global("Switcher", "entries", list_value(state.items.iter().map(switcher_entry)));
+    }
+    if !state.active {
+        // The next switch writes new pictures.
+        PREVIEWS.with(|cache| cache.borrow_mut().clear());
+    }
     host.set_global("Switcher", "workspaces", Value::Bool(state.workspaces));
     host.set_global("Switcher", "index", Value::Number(state.index as f64));
     host.set_global("Switcher", "active", Value::Bool(state.active));

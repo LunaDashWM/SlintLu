@@ -89,9 +89,39 @@ fn index_for_app_id(apps: &[AppEntry], app_id: &str) -> Option<usize> {
     });
     // "org.gnome.Nautilus" windows of "nautilus.desktop" and the like.
     let last = |s: &str| s.rsplit('.').next().unwrap_or(s).to_ascii_lowercase();
-    exact.or_else(|| {
-        apps.iter().position(|a| last(a.id.trim_end_matches(".desktop")) == last(app_id))
-    })
+    exact
+        .or_else(|| {
+            apps.iter().position(|a| last(a.id.trim_end_matches(".desktop")) == last(app_id))
+        })
+        // An AppImage or a script whose window is named after its program ("osu!"), its icon
+        // or its name.
+        .or_else(|| {
+            apps.iter().position(|a| {
+                program(&a.exec).eq_ignore_ascii_case(app_id)
+                    || a.icon.eq_ignore_ascii_case(app_id)
+                    || a.name.eq_ignore_ascii_case(app_id)
+            })
+        })
+}
+
+/// The program an `Exec=` line runs, without its directory.
+fn program(exec: &str) -> &str {
+    let first = exec.split_whitespace().next().unwrap_or("").trim_matches('"');
+    first.rsplit('/').next().unwrap_or(first)
+}
+
+/// An icon from the icon theme for a window without a desktop entry: its app id as written,
+/// in lower case, its last dotted part, with dashes for spaces and underscores.
+pub fn theme_icon(app_id: &str) -> slint::Image {
+    let lower = app_id.to_lowercase();
+    let last = lower.rsplit('.').next().unwrap_or(&lower).to_owned();
+    let dashed = lower.replace([' ', '_'], "-");
+    [app_id, lower.as_str(), last.as_str(), dashed.as_str()]
+        .into_iter()
+        .filter(|name| !name.is_empty())
+        .map(|name| icons::icon(name, DEFAULT_SIZE))
+        .find(|image| image.size().width > 0)
+        .unwrap_or_default()
 }
 
 fn field<'a>(value: &'a Value, name: &str) -> Option<&'a Value> {
@@ -292,14 +322,24 @@ pub fn install(host: &Rc<ShellHost>) {
             let id = string_arg(args, 0).unwrap_or_default();
             let found = state().and_then(|state| {
                 let state = state.borrow();
+                // The desktop file itself, else the application a window app id belongs to
+                // (taskbars ask with "<app id>.desktop").
                 let index = state
                     .apps
                     .iter()
-                    .position(|a| a.id == id || a.id.trim_end_matches(".desktop") == id)?;
+                    .position(|a| a.id == id || a.id.trim_end_matches(".desktop") == id)
+                    .or_else(|| index_for_app_id(&state.apps, &id))?;
                 state.values.get(index).cloned()
             });
             found.unwrap_or_else(|| {
-                value(&ScannedApp { entry: AppEntry { id, ..Default::default() }, icon: None })
+                // No desktop entry: the icon theme may still know the app.
+                let icon = theme_icon(id.trim_end_matches(".desktop"));
+                let mut unknown =
+                    value(&ScannedApp { entry: AppEntry { id, ..Default::default() }, icon: None });
+                if let Value::Struct(fields) = &mut unknown {
+                    fields.set_field("icon".into(), Value::Image(icon));
+                }
+                unknown
             })
         }),
     );
@@ -311,7 +351,7 @@ pub fn install(host: &Rc<ShellHost>) {
             let app_id = string_arg(args, 0).unwrap_or_default();
             let image = icon_for(&app_id)
                 .filter(|i| i.size().width > 0)
-                .unwrap_or_else(|| icons::icon(&app_id.to_lowercase(), DEFAULT_SIZE));
+                .unwrap_or_else(|| theme_icon(&app_id));
             Value::Image(image)
         }),
     );
@@ -335,4 +375,48 @@ pub fn install(host: &Rc<ShellHost>) {
             Value::Void
         }),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn app(id: &str, name: &str, exec: &str, icon: &str, wm_class: &str) -> AppEntry {
+        AppEntry {
+            id: id.into(),
+            name: name.into(),
+            exec: exec.into(),
+            icon: icon.into(),
+            startup_wm_class: wm_class.into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn window_app_ids_find_their_entries() {
+        let apps = [
+            app(
+                "org.gnome.Nautilus.desktop",
+                "Files",
+                "nautilus --new-window",
+                "org.gnome.Nautilus",
+                "",
+            ),
+            app("osu.desktop", "osu!", "\"/opt/osu/osu!\" %u", "osu", ""),
+            app(
+                "chromium.desktop",
+                "Chromium",
+                "/usr/bin/chromium %U",
+                "chromium",
+                "Chromium-browser",
+            ),
+            app("zed.desktop", "Zed", "zeditor %U", "zed", ""),
+        ];
+        assert_eq!(index_for_app_id(&apps, "nautilus"), Some(0));
+        assert_eq!(index_for_app_id(&apps, "osu!"), Some(1), "program name");
+        assert_eq!(index_for_app_id(&apps, "chromium-browser"), Some(2), "StartupWMClass");
+        assert_eq!(index_for_app_id(&apps, "Zed"), Some(3), "name");
+        assert_eq!(index_for_app_id(&apps, "unknown"), None);
+        assert_eq!(program("\"/opt/osu/osu!\" %u"), "osu!");
+    }
 }

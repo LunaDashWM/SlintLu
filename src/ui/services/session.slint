@@ -1,4 +1,5 @@
-// The session lock. Define a component inheriting `LockWindow` to enable locking.
+// The session lock and the user's account. Define a component inheriting `LockWindow` to
+// enable locking.
 export global Session {
     // The lock screen is up.
     in property <bool> locked;
@@ -10,10 +11,18 @@ export global Session {
     in property <string> message;
     // Lock automatically before the machine suspends (see `set-lock-before-sleep`).
     in property <bool> lock-before-sleep: true;
+    // The account's full name ("" without one) and picture (AccountsService, else ~/.face).
+    in property <string> real-name;
+    in property <image> avatar;
+    // Why the last set-avatar failed, or "".
+    in property <string> avatar-error;
 
     // Locks now (also triggered by `loginctl lock-session` and `Power.lock()`).
     callback lock();
     // Checks the password with PAM and unlocks on success.
     callback authenticate(password: string);
     callback set-lock-before-sleep(enabled: bool);
+    // Makes an image file the account picture: cropped square to ~/.face, and the login
+    // screen's through AccountsService.
+    callback set-avatar(path: string);
 }

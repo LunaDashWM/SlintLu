@@ -48,6 +48,8 @@ export struct SwitcherEntry {
     minimized: bool,
     // Workspace switcher: icons of the applications on the workspace.
     icons: [image],
+    // A picture of the window, once the compositor took one (else empty).
+    preview: image,
 }
 
 // The compositor's window switcher (Alt+Tab) and workspace switcher (Super+Tab), for shells that

@@ -3,7 +3,9 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
+use slint::{Image, Rgba8Pixel, SharedPixelBuffer};
 use slint_interpreter::Value;
+use slintlu::dbus::accounts;
 use slintlu::dbus::power::{Power, SessionEvent};
 use slintlu::security::{self, LockEvent};
 
@@ -78,8 +80,51 @@ fn authenticate(host: &ShellHost, password: String) {
     });
 }
 
+fn home() -> std::path::PathBuf {
+    std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_else(|| "/".into())
+}
+
+/// Decodes a picture off the UI thread. Pixels, not a path: Slint caches images by path and
+/// would keep showing the old ~/.face.
+fn decode(path: &std::path::Path) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+    let picture = image::open(path).ok()?.into_rgba8();
+    Some(SharedPixelBuffer::clone_from_slice(picture.as_raw(), picture.width(), picture.height()))
+}
+
+/// Reads the account's name and picture on a thread, then shows them.
+fn load_account() {
+    std::thread::spawn(|| {
+        let account = accounts::load(&security::current_user(), &home());
+        let pixels = account.icon.as_deref().and_then(decode);
+        host::post(move |host| {
+            host.set_global("Session", "real-name", string(&account.real_name));
+            let avatar = pixels.map(Image::from_rgba8).unwrap_or_default();
+            host.set_global("Session", "avatar", Value::Image(avatar));
+        });
+    });
+}
+
 pub fn install(host: &Rc<ShellHost>) {
     host.set_global("Session", "user", string(security::current_user()));
+    load_account();
+    host.on_callback(
+        "Session",
+        "set-avatar",
+        Rc::new(|args| {
+            let Some(path) = string_arg(args, 0).filter(|p| !p.is_empty()) else {
+                return Value::Void;
+            };
+            std::thread::spawn(move || {
+                let result = accounts::set_icon(&security::current_user(), &home(), path.as_ref());
+                host::post(move |host| {
+                    let error = result.err().unwrap_or_default();
+                    host.set_global("Session", "avatar-error", string(&error));
+                });
+                load_account();
+            });
+            Value::Void
+        }),
+    );
 
     let weak = Rc::downgrade(host);
     security::on_lock_event(move |event| {

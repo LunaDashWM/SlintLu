@@ -122,6 +122,8 @@ pub struct SwitcherItem {
     pub minimized: bool,
     /// Workspace switcher: the application ids of the windows on the workspace.
     pub apps: Vec<String>,
+    /// A picture of the window (a file), when the compositor took one.
+    pub preview: String,
 }
 
 /// The compositor's window switcher (Alt+Tab), for shells that draw it.
