@@ -64,6 +64,16 @@ fn score_word(app: &AppEntry, query: &str) -> Option<u32> {
 
 /// Matching applications, best first. Frequently launched applications get a boost; an empty
 /// query lists everything by frequency, then name.
+/// Whether `app` is in any of `categories` (freedesktop names, ";"-separated); every
+/// application is when the list is empty.
+pub fn in_categories(app: &AppEntry, categories: &str) -> bool {
+    let mut wanted = categories.split(';').map(str::trim).filter(|c| !c.is_empty()).peekable();
+    if wanted.peek().is_none() {
+        return true;
+    }
+    wanted.any(|category| app.categories.iter().any(|c| c.eq_ignore_ascii_case(category)))
+}
+
 pub fn search<'a>(
     apps: &'a [AppEntry],
     query: &str,
@@ -139,5 +149,16 @@ mod tests {
         }
         assert_eq!(names(search(&apps, "fi", &history, 10))[0], "Firefox");
         assert_eq!(names(search(&apps, "", &history, 2)), vec!["Firefox", "Files"]);
+    }
+
+    #[test]
+    fn filters_by_category() {
+        let mut player = app("mpv.desktop", "mpv", "Media Player", &[]);
+        player.categories = vec!["AudioVideo".into(), "Video".into()];
+        let editor = app("zed.desktop", "Zed", "Text Editor", &[]);
+        assert!(in_categories(&player, "AudioVideo;Audio;Video"));
+        assert!(!in_categories(&editor, "AudioVideo;Audio;Video"));
+        assert!(in_categories(&editor, ""));
+        assert!(in_categories(&player, " video "));
     }
 }

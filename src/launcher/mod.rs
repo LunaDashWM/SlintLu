@@ -12,4 +12,4 @@ pub use entry::{AppAction, AppEntry};
 pub use exec::{LaunchError, detach, launch, parse_exec};
 pub use history::LaunchHistory;
 pub use scan::{application_dirs, scan};
-pub use search::search;
+pub use search::{in_categories, search};

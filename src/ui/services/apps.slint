@@ -41,6 +41,9 @@ export global Apps {
     // refresh results when they arrive, mention `all` in the binding:
     //     property <[AppInfo]> results: Apps.all.length >= 0 ? Apps.search(query, 40) : [];
     pure callback search(query: string, limit: int) -> [AppInfo];
+    // `search` among the applications in any of `categories`: freedesktop category names
+    // separated by ";", e.g. "AudioVideo;Audio;Video" (empty: every application).
+    pure callback search-in(query: string, categories: string, limit: int) -> [AppInfo];
     callback launch(id: string);
     // One application by desktop file id (empty fields when unknown).
     pure callback get(id: string) -> AppInfo;

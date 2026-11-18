@@ -47,6 +47,9 @@ export global Compositor {
     in property <string> wallpaper-directory;
     // The compositor's keyboard shortcuts, sorted by action (LunaDash); empty otherwise.
     in property <[ShortcutInfo]> shortcuts;
+    // The action bound to `keys` ("Meta+Shift+S", any case), or "" when none: for
+    // shortcut editors to report a conflict before assigning.
+    pure callback shortcut-owner(keys: string) -> string;
     // The categories (subfolders) of the wallpaper library, sorted.
     in property <[string]> wallpaper-categories;
     // Increases when the compositor's preferences change; pass it to the preference-* readers.

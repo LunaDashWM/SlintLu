@@ -265,6 +265,28 @@ pub fn install(host: &Rc<ShellHost>) {
     );
     host.on_callback(
         "Apps",
+        "search-in",
+        Rc::new(|args| {
+            let Some(state) = state() else { return list_value([]) };
+            let state = state.borrow();
+            let query = string_arg(args, 0).unwrap_or_default();
+            let categories = string_arg(args, 1).unwrap_or_default();
+            let limit = number_arg(args, 2).filter(|l| *l > 0.0).map_or(usize::MAX, |l| l as usize);
+            let results = launcher::search(&state.apps, &query, &state.history, usize::MAX);
+            list_value(
+                results
+                    .into_iter()
+                    .filter(|app| launcher::in_categories(app, &categories))
+                    .take(limit)
+                    .filter_map(|app| {
+                        let index = state.apps.iter().position(|a| a.id == app.id)?;
+                        state.values.get(index).cloned()
+                    }),
+            )
+        }),
+    );
+    host.on_callback(
+        "Apps",
         "get",
         Rc::new(|args| {
             let id = string_arg(args, 0).unwrap_or_default();

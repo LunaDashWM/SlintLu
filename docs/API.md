@@ -71,6 +71,7 @@ Installed applications (freedesktop desktop entries), refreshed when they change
 |---|---|---|---|
 | `all` | `[AppInfo]` | read | Every visible application, sorted by name. |
 | `search(query: string, limit: int)` | callback → `[AppInfo]` | call | Fuzzy search over names, descriptions and keywords, frequently used apps first. An empty query lists the most used applications. Applications are scanned in the background; to refresh results when they arrive, mention `all` in the binding: property <[AppInfo]> results: Apps.all.length >= 0 ? Apps.search(query, 40) : []; |
+| `search-in(query: string, categories: string, limit: int)` | callback → `[AppInfo]` | call | `search` among the applications in any of `categories`: freedesktop category names separated by ";", e.g. "AudioVideo;Audio;Video" (empty: every application). |
 | `launch(id: string)` | callback | call |  |
 | `get(id: string)` | callback → `AppInfo` | call | One application by desktop file id (empty fields when unknown). |
 | `icon-for(app-id: string)` | callback → `image` | call | The icon of the application a window belongs to, from its app id (Wayland app_id or X11 class), falling back to the icon theme. |
@@ -182,6 +183,7 @@ The compositor itself: its name, requests it sends to the shell (keyboard shortc
 | `wallpapers` | `[WallpaperInfo]` | read | The compositor's wallpaper library (LunaDash): its folder plus the bundled wallpapers. |
 | `wallpaper-directory` | `string` | read |  |
 | `shortcuts` | `[ShortcutInfo]` | read | The compositor's keyboard shortcuts, sorted by action (LunaDash); empty otherwise. |
+| `shortcut-owner(keys: string)` | callback → `string` | call | The action bound to `keys` ("Meta+Shift+S", any case), or "" when none: for shortcut editors to report a conflict before assigning. |
 | `wallpaper-categories` | `[string]` | read | The categories (subfolders) of the wallpaper library, sorted. |
 | `preferences-revision` | `int` | read | Increases when the compositor's preferences change; pass it to the preference-* readers. |
 | `filter-wallpapers(query: string, collection: string, category: string, kind: string, revision: int)` | callback → `[WallpaperInfo]` | call | The library entries matching a search: `collection` is "library" (all), "bundled" or "favorites"; `category` "" for all; `kind` "all", "image" or "video". Pass `wallpapers.length` (or any value that changes with the library) as `revision`. |

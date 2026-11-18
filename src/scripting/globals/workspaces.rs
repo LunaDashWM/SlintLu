@@ -309,9 +309,29 @@ fn window_id(args: &[Value]) -> Option<u64> {
     string_arg(args, 0)?.parse().ok()
 }
 
+/// The action bound to `keys` ("Meta+Shift+S"), compared without regard to case.
+fn shortcut_owner(shortcuts: &[Shortcut], keys: &str) -> Option<String> {
+    shortcuts
+        .iter()
+        .find(|s| !s.keys.is_empty() && s.keys.join("+").eq_ignore_ascii_case(keys.trim()))
+        .map(|s| s.action.clone())
+}
+
 pub fn install(host: &Rc<ShellHost>, compositor: Compositor) {
     host.set_global("Compositor", "name", string(compositor.as_str()));
     host.set_global("Compositor", "has-commands", Value::Bool(compositor == Compositor::LunaDash));
+    host.on_callback(
+        "Compositor",
+        "shortcut-owner",
+        Rc::new(|args| {
+            let wanted = string_arg(args, 0).unwrap_or_default();
+            string(
+                SHORTCUTS.with(|shortcuts| {
+                    shortcut_owner(&shortcuts.borrow(), &wanted).unwrap_or_default()
+                }),
+            )
+        }),
+    );
     install_preference_readers(host);
     host.on_callback("Compositor", "filter-wallpapers", Rc::new(filter_wallpapers));
     let Some(backend) = compositors::backend(compositor) else {
@@ -368,4 +388,23 @@ pub fn install(host: &Rc<ShellHost>, compositor: Compositor) {
     action(host, &backend, "focus", |a| Some(Action::FocusWorkspace(number_arg(a, 0)? as u64)));
     action(host, &backend, "focus-window", |a| Some(Action::FocusWindow(window_id(a)?)));
     action(host, &backend, "close-window", |a| Some(Action::CloseWindow(window_id(a)?)));
+}
+
+#[cfg(test)]
+mod shortcut_tests {
+    use super::*;
+
+    #[test]
+    fn finds_the_owner_of_a_combination() {
+        let shortcuts = vec![
+            Shortcut { action: "closeWindow".into(), keys: vec!["Meta".into(), "Q".into()] },
+            Shortcut {
+                action: "screenshot".into(),
+                keys: vec!["Meta".into(), "Shift".into(), "S".into()],
+            },
+        ];
+        assert_eq!(shortcut_owner(&shortcuts, "meta+q").as_deref(), Some("closeWindow"));
+        assert_eq!(shortcut_owner(&shortcuts, "Meta+Shift+S").as_deref(), Some("screenshot"));
+        assert_eq!(shortcut_owner(&shortcuts, "Meta+W"), None);
+    }
 }
