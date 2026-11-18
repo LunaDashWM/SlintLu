@@ -11,10 +11,12 @@ use smithay_client_toolkit::registry::{ProvidesRegistryState, RegistryState};
 use smithay_client_toolkit::seat::SeatState;
 use smithay_client_toolkit::shm::{Shm, ShmHandler};
 use smithay_client_toolkit::{delegate_dispatch2, delegate_registry, registry_handlers};
+use smithay_client_toolkit::activation::ActivationHandler;
 
 use super::context::Context;
 use crate::input::SeatDevices;
 use crate::window::WaylandWindow;
+use crate::dbus::file_chooser::{self, ChooseRequest};
 
 pub(crate) struct State {
     pub ctx: Rc<Context>,
@@ -55,6 +57,24 @@ impl State {
 impl ShmHandler for State {
     fn shm_state(&mut self) -> &mut Shm {
         &mut self.shm
+    }
+}
+
+impl ActivationHandler for State {
+    type RequestUdata = ChooseRequest;
+
+    fn new_token(
+        &mut self,
+        token: String,
+        data: &smithay_client_toolkit::activation::RequestData<Self::RequestUdata>,
+    ) {
+        let mut options = data.udata.options.clone();
+        options.activation_token = Some(token);
+        let on_selected = data.udata.on_selected.clone();
+        std::thread::spawn(move || match file_chooser::choose(&options) {
+            Ok(path) => on_selected(path),
+            Err(e) => log::warn!("file chooser: {e}"),
+        });
     }
 }
 

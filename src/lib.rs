@@ -68,7 +68,9 @@ mod x11;
 
 pub use core::WaylandPlatform;
 pub use output::{OutputInfo, on_outputs_changed, outputs};
-pub use platform::{Backend, PlatformConfig, ShellWindow, active_backend, init, window_for};
+pub use platform::{
+    Backend, PlatformConfig, ShellWindow, active_backend, init, window_for, x11_parent_window,
+};
 pub use render::RendererKind;
 pub use shell::config::{
     Anchors, ExclusiveZone, KeyboardMode, Layer, LayerConfig, Margins, SurfaceRole,

@@ -11,6 +11,7 @@ use smithay_client_toolkit::session_lock::{SessionLock, SessionLockState};
 use smithay_client_toolkit::shell::wlr_layer::LayerShell;
 use smithay_client_toolkit::shell::xdg::XdgShell;
 use smithay_client_toolkit::shm::Shm;
+use smithay_client_toolkit::activation::ActivationState;
 
 use super::state::State;
 use crate::output::OutputInfo;
@@ -28,6 +29,7 @@ pub(crate) struct Context {
     pub compositor: CompositorState,
     pub layer_shell: Option<LayerShell>,
     pub xdg_shell: Option<XdgShell>,
+    pub activation: Option<ActivationState>,
     pub shm: Shm,
     pub clipboard: crate::clipboard::ClipboardState,
     pub clipboard_history: crate::clipboard::ClipboardHistory,

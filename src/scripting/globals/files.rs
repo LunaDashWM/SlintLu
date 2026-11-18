@@ -4,9 +4,10 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use slint_interpreter::Value;
-use slintlu::dbus::file_chooser::{self, ChooseOptions};
+use slintlu::dbus::file_chooser::{self, ChooseOptions, ChooseRequest};
 use slintlu::files::{self, FileKind};
 use slintlu::util::xdg;
 
@@ -46,17 +47,20 @@ fn thumbnail(path: PathBuf, size: u32) -> Value {
 
 /// Opens the portal's file chooser off the UI thread and publishes the choice.
 fn choose(options: ChooseOptions) {
-    std::thread::spawn(move || match file_chooser::choose(&options) {
-        Ok(Some(path)) => host::post(move |host| {
-            let serial = CHOSEN.with(|c| {
-                *c.borrow_mut() += 1;
-                *c.borrow()
-            });
-            host.set_global("Files", "chosen", string(path.to_string_lossy()));
-            host.set_global("Files", "chosen-serial", Value::Number(serial.into()));
+    file_chooser::request(ChooseRequest {
+        options,
+        on_selected: Arc::new(|path| {
+            if let Some(path) = path {
+                host::post(move |host| {
+                    let serial = CHOSEN.with(|c| {
+                        *c.borrow_mut() += 1;
+                        *c.borrow()
+                    });
+                    host.set_global("Files", "chosen", string(path.to_string_lossy()));
+                    host.set_global("Files", "chosen-serial", Value::Number(serial.into()));
+                });
+            }
         }),
-        Ok(None) => {}
-        Err(e) => log::warn!("file chooser: {e}"),
     });
 }
 
@@ -93,6 +97,8 @@ pub fn install(host: &Rc<ShellHost>) {
             let folder = string_arg(args, 3).filter(|f| !f.is_empty());
             choose(ChooseOptions {
                 title: string_arg(args, 0).unwrap_or_default(),
+                parent_window: slintlu::x11_parent_window().unwrap_or_default(),
+                activation_token: None,
                 extensions: string_arg(args, 1)
                     .unwrap_or_default()
                     .split(',')

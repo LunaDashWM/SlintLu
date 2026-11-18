@@ -117,6 +117,21 @@ pub fn active_backend() -> Option<Backend> {
     None
 }
 
+/// Returns the portal parent identifier for the currently mapped X11 window.
+pub fn x11_parent_window() -> Option<String> {
+    #[cfg(feature = "x11")]
+    if let Some(ctx) = crate::x11::context::current() {
+        return ctx.live_windows().into_iter().rev().find(|window| {
+            window.is_shown()
+                && matches!(
+                    window.role(),
+                    SurfaceRole::Toplevel { .. }
+                )
+        }).map(|window| format!("x11:{:x}", window.xid()));
+    }
+    None
+}
+
 /// The display-server side of a Slint window created by SlintLu, which allows changing its
 /// [`SurfaceRole`] before it is shown. Get it with [`window_for`].
 #[derive(Clone)]

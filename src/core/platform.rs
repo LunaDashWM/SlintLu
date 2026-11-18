@@ -47,6 +47,9 @@ impl WaylandPlatform {
         let xdg_shell = XdgShell::bind(&globals, &qh)
             .inspect_err(|e| log::warn!("xdg_wm_base is not available: {e}"))
             .ok();
+        let activation = smithay_client_toolkit::activation::ActivationState::bind(&globals, &qh)
+            .inspect_err(|e| log::warn!("xdg-activation is not available: {e}"))
+            .ok();
 
         let session_lock_state = globals
             .contents()
@@ -62,6 +65,7 @@ impl WaylandPlatform {
             compositor,
             layer_shell,
             xdg_shell,
+            activation,
             shm,
             clipboard: crate::clipboard::ClipboardState::new(&globals, &qh),
             clipboard_history: crate::clipboard::ClipboardHistory::new(&globals, &qh),

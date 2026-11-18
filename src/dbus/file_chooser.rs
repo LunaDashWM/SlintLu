@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use futures_util::StreamExt;
 use zbus::{Connection, OwnedObjectPath, OwnedVariant, Variant, proxy};
@@ -35,12 +36,64 @@ trait Request {
 #[derive(Clone, Debug, Default)]
 pub struct ChooseOptions {
     pub title: String,
+    /// Opaque portal parent identifier (`x11:<window>` or a Wayland activation token).
+    pub parent_window: String,
+    /// xdg-activation token, used to raise the chooser above the requesting window on Wayland.
+    pub activation_token: Option<String>,
     /// Lowercase extensions without dots; empty accepts every file.
     pub extensions: Vec<String>,
     /// Choose a folder instead of a file.
     pub directory: bool,
     /// The folder the dialog starts in.
     pub folder: Option<PathBuf>,
+}
+
+pub struct ChooseRequest {
+    pub options: ChooseOptions,
+    pub on_selected: Arc<dyn Fn(Option<PathBuf>) + Send + Sync>,
+}
+
+/// Requests an activation token from the Wayland compositor, if available, then opens the
+/// portal chooser. X11 gets an explicit parent XID.
+pub fn request(request: ChooseRequest) {
+    let ChooseRequest { options, on_selected } = request;
+    if let Some(ctx) = crate::core::context::current()
+        && let Some(activation) = ctx.activation.as_ref()
+    {
+        let surface = ctx
+            .live_windows()
+            .into_iter()
+            .rev()
+            .find(|window| {
+                window.is_shown()
+                    && matches!(
+                        window.role(),
+                        crate::shell::config::SurfaceRole::Toplevel { .. }
+                    )
+            })
+            .map(|window| window.wl_surface().clone());
+        if let Some(surface) = surface {
+            use smithay_client_toolkit::activation::RequestData;
+            activation.request_token(
+                &ctx.qh,
+                RequestData {
+                    app_id: Some("slintlu".to_owned()),
+                    seat_and_serial: None,
+                    surface: Some(surface),
+                    udata: ChooseRequest {
+                        options: options.clone(),
+                        on_selected: on_selected.clone(),
+                    },
+                },
+            );
+            return;
+        }
+    }
+
+    std::thread::spawn(move || match choose(&options) {
+        Ok(path) => on_selected(path),
+        Err(e) => log::warn!("file chooser: {e}"),
+    });
 }
 
 /// The portal's glob patterns for `extensions`, in both cases (the patterns are case
@@ -92,7 +145,10 @@ pub fn choose(options: &ChooseOptions) -> zbus::Result<Option<PathBuf>> {
             call.insert("current_folder", Variant::from(folder_bytes(folder)));
         }
         let chooser = FileChooserProxy::new(&connection).await?;
-        chooser.open_file("", &options.title, call).await?;
+        if let Some(token) = options.activation_token.as_deref() {
+            call.insert("activation_token", Variant::from(token));
+        }
+        chooser.open_file(&options.parent_window, &options.title, call).await?;
 
         let Some(signal) = responses.next().await else {
             return Err(zbus::Error::Failure("the portal did not answer".into()));
