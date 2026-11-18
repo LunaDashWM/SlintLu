@@ -22,6 +22,11 @@ export global Shell {
     // and nothing in it is evaluated, so $VARS, globs, pipes and ; reach the program as text.
     // Use it for commands users type.
     callback run(command: string);
+    // Asks the shell to open something, from outside it: keyboard shortcuts run
+    // `slintlu msg call Shell.request launcher` (or "settings" "network", "power-menu", ...).
+    // The shell sees it as Compositor.request, Compositor.request-argument and an increased
+    // Compositor.request-serial.
+    callback request(action: string, argument: string);
     // An environment variable of the shell process ("" when unset).
     pure callback env(name: string) -> string;
     // Reloads the shell configuration.

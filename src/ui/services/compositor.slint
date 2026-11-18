@@ -22,9 +22,11 @@ export struct ShortcutInfo {
 export global Compositor {
     // "lunadash", "niri", "hyprland", "sway", … or "unknown".
     in property <string> name;
-    // The latest request, e.g. "launcher" (argument "true"/"false"), "settings" (argument: the
-    // page), "wallpaper-picker", "control-center", "clipboard", "power-menu". React to changes
-    // of `request-serial`.
+    // The latest request to the shell, made with Shell.request (for example by a compositor
+    // shortcut running `slintlu msg call Shell.request launcher`): "launcher" (argument
+    // "true"/"false", toggle when empty), "settings" (argument: the page), "wallpaper-picker",
+    // "control-center", "clipboard", "power-menu", "welcome". React to changes of
+    // `request-serial`.
     in property <string> request;
     in property <string> request-argument;
     in property <int> request-serial;

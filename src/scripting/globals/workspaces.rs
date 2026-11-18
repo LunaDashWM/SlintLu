@@ -164,12 +164,6 @@ fn publish(host: &ShellHost, state: &DesktopState) {
         host.set_global("Compositor", "shortcuts", list_value(shortcuts));
         SHORTCUTS.with(|s| *s.borrow_mut() = state.shortcuts.clone());
     }
-    if let Some(request) = &state.request {
-        host.set_global("Compositor", "request", string(&request.action));
-        host.set_global("Compositor", "request-argument", string(&request.argument));
-        // Set last: shells react to the serial changing.
-        host.set_global("Compositor", "request-serial", Value::Number(request.serial as f64));
-    }
 }
 
 fn action(

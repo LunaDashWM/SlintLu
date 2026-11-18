@@ -11,8 +11,7 @@ use serde_json::{Value, json};
 
 use super::Backend;
 use super::model::{
-    Action, DesktopState, Shortcut, SwitcherItem, SwitcherState, WallpaperEntry, Window,
-    Workspace,
+    Action, DesktopState, Shortcut, SwitcherItem, SwitcherState, WallpaperEntry, Window, Workspace,
 };
 use crate::util::uri::path_from_path_or_uri;
 
@@ -105,7 +104,6 @@ fn build_state(status: &Value) -> DesktopState {
             })
             .collect(),
         keyboard_layout: String::new(),
-        request: None,
         wallpaper: status["wallpaperImage"]
             .as_str()
             .map(|uri| path_from_path_or_uri(uri).to_string_lossy().into_owned())
@@ -238,82 +236,55 @@ fn read_switcher(path: &std::path::Path) -> SwitcherState {
         .unwrap_or_default()
 }
 
-/// The serials LunaDash bumps when a shortcut asks the shell for something.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-struct Serials {
-    launcher: u64,
-    settings: u64,
-    picker: u64,
-    action: u64,
-}
-
-impl Serials {
-    fn of(status: &Value) -> Self {
-        let n = |key: &str| status[key].as_u64().unwrap_or(0);
-        Self {
-            launcher: n("launcherSerial"),
-            settings: n("settingsSerial"),
-            picker: n("pickerSerial"),
-            action: n("shellActionSerial"),
-        }
-    }
-
-    /// The request a change of serials stands for.
-    fn request(&self, before: &Self, status: &Value) -> Option<(String, String)> {
-        let text = |key: &str| status[key].as_str().unwrap_or_default().to_owned();
-        if self.launcher != before.launcher {
-            let open = status["launcherOpen"].as_bool().unwrap_or(true);
-            return Some(("launcher".into(), open.to_string()));
-        }
-        if self.settings != before.settings {
-            return Some(("settings".into(), text("settingsPage")));
-        }
-        if self.picker != before.picker {
-            return Some(("wallpaper-picker".into(), String::new()));
-        }
-        if self.action != before.action {
-            let action = match text("shellAction").as_str() {
-                "launchOrbit" => "orbit-launcher",
-                "openControlCenter" => "control-center",
-                "openClipboard" => "clipboard",
-                "openPowerMenu" => "power-menu",
-                other => return Some((other.to_owned(), String::new())),
-            };
-            return Some((action.into(), String::new()));
-        }
-        None
-    }
-}
-
-impl Backend for LunaDash {
-    fn watch(&self, on_state: &mut dyn FnMut(&DesktopState)) -> io::Result<()> {
+impl LunaDash {
+    /// Follows LunaDash's `subscribe` stream: its shell state now and on every change.
+    /// `Unsupported` when this LunaDash predates the stream.
+    fn subscribe(&self, on_state: &mut dyn FnMut(&DesktopState)) -> io::Result<()> {
+        let stream = UnixStream::connect(&self.socket)?;
+        stream.set_write_timeout(Some(TIMEOUT))?;
+        writeln!(&stream, "{}", json!({ "method": "subscribe", "value": "shell" }))?;
+        let mut reader = BufReader::new(stream);
         let mut last: Option<DesktopState> = None;
-        let mut serials: Option<Serials> = None;
-        let mut request: Option<crate::compositors::CompositorRequest> = None;
-        // LunaDash attaches its translation table to `status` unless it is told the language
-        // the client already knows; pass the last one seen.
-        let mut language = String::new();
+        let mut line = String::new();
         loop {
-            let status = self.request("status", &language)?;
-            if let Some(current) = status["language"].as_str() {
-                current.clone_into(&mut language);
+            line.clear();
+            if reader.read_line(&mut line)? == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "LunaDash closed the stream",
+                ));
             }
-            let mut state = build_state(&status);
-            let now = Serials::of(&status);
-            // The first snapshot only records the serials: old requests are not replayed.
-            if let Some(before) = &serials
-                && let Some((action, argument)) = now.request(before, &status)
-            {
-                let serial = request.as_ref().map_or(1, |r| r.serial + 1);
-                request = Some(crate::compositors::CompositorRequest { serial, action, argument });
+            let status: Value = serde_json::from_str(&line).map_err(io::Error::other)?;
+            if last.is_none() && status.get("error").is_some() {
+                return Err(io::Error::new(io::ErrorKind::Unsupported, "no subscribe stream"));
             }
-            serials = Some(now);
-            state.request = request.clone();
+            let state = build_state(&status);
+            if last.as_ref() != Some(&state) {
+                on_state(&state);
+                last = Some(state);
+            }
+        }
+    }
+
+    /// Asks for the full status again and again (LunaDash without the stream).
+    fn poll(&self, on_state: &mut dyn FnMut(&DesktopState)) -> io::Result<()> {
+        let mut last: Option<DesktopState> = None;
+        loop {
+            let state = build_state(&self.request("status", "")?);
             if last.as_ref() != Some(&state) {
                 on_state(&state);
                 last = Some(state);
             }
             std::thread::sleep(POLL);
+        }
+    }
+}
+
+impl Backend for LunaDash {
+    fn watch(&self, on_state: &mut dyn FnMut(&DesktopState)) -> io::Result<()> {
+        match self.subscribe(on_state) {
+            Err(e) if e.kind() == io::ErrorKind::Unsupported => self.poll(on_state),
+            result => result,
         }
     }
 
@@ -417,20 +388,6 @@ mod tests {
         assert_eq!(keys("launchFiles"), None);
         assert!(!state.session_ending);
         assert!(build_state(&json!({"shutdown": true})).session_ending);
-    }
-
-    #[test]
-    fn serial_changes_become_requests() {
-        let before = Serials::of(&json!({"launcherSerial": 1, "shellActionSerial": 4}));
-        let status = json!({"launcherSerial": 1, "shellActionSerial": 5, "shellAction": "openControlCenter"});
-        let now = Serials::of(&status);
-        assert_eq!(now.request(&before, &status), Some(("control-center".into(), String::new())));
-        let status = json!({"launcherSerial": 2, "launcherOpen": false, "shellActionSerial": 5});
-        assert_eq!(
-            Serials::of(&status).request(&now, &status),
-            Some(("launcher".into(), "false".into()))
-        );
-        assert_eq!(now.request(&now, &status), None);
     }
 
     #[test]

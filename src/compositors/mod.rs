@@ -1,10 +1,12 @@
 //! Knowledge about specific compositors: detection and workspace / window IPC.
 
+mod composite;
 mod detect;
 mod hyprland;
 mod lunadash;
 mod model;
 mod niri;
+mod protocols;
 mod sway;
 
 use std::io;
@@ -13,8 +15,7 @@ use std::sync::Arc;
 pub use detect::Compositor;
 pub use lunadash::LunaDash;
 pub use model::{
-    Action, CompositorRequest, DesktopState, Shortcut, SwitcherItem, SwitcherState,
-    WallpaperEntry, Window, Workspace,
+    Action, DesktopState, Shortcut, SwitcherItem, SwitcherState, WallpaperEntry, Window, Workspace,
 };
 
 /// A compositor's IPC connection.
@@ -50,8 +51,15 @@ pub fn backend(compositor: Compositor) -> Option<Arc<dyn Backend>> {
         }
         Compositor::Sway => sway::Sway::from_env().map(|b| Arc::new(b) as Arc<dyn Backend>),
         Compositor::LunaDash => {
-            lunadash::LunaDash::from_env().map(|b| Arc::new(b) as Arc<dyn Backend>)
+            let adapter =
+                lunadash::LunaDash::from_env().map(|b| Arc::new(b) as Arc<dyn Backend>)?;
+            // Workspaces and windows through the standard protocols where LunaDash has them.
+            Some(match protocols::Protocols::connect().filter(|p| p.has_workspaces()) {
+                Some(protocols) => Arc::new(composite::Composite::new(protocols, adapter)),
+                None => adapter,
+            })
         }
-        _ => None,
+        // Any other compositor: whatever it offers through standard protocols.
+        _ => protocols::Protocols::connect().map(|b| Arc::new(b) as Arc<dyn Backend>),
     }
 }

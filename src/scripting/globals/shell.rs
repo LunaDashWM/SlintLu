@@ -39,6 +39,20 @@ pub fn install(host: &Rc<ShellHost>, info: &ShellInfo) {
             Value::Void
         }),
     );
+    // Requests from outside the shell, e.g. a compositor's keyboard shortcut running
+    // `slintlu msg call Shell.request launcher`. Implemented natively so it runs once, not
+    // once per window; the shell sees it as Compositor.request.
+    host.on_callback(
+        "Shell",
+        "request",
+        Rc::new(|args| {
+            if let Some(action) = string_arg(args, 0) {
+                let argument = string_arg(args, 1).unwrap_or_default();
+                host::post(move |host| request(host, &action, &argument));
+            }
+            Value::Void
+        }),
+    );
     host.on_callback(
         "Shell",
         "env",
@@ -97,4 +111,20 @@ fn start(mut command: Command, line: &str) {
         }
         Err(e) => log::error!("cannot run `{line}`: {e}"),
     }
+}
+
+thread_local! {
+    static REQUEST_SERIAL: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// Publishes a request as Compositor.request / request-argument / request-serial.
+fn request(host: &ShellHost, action: &str, argument: &str) {
+    let serial = REQUEST_SERIAL.with(|s| {
+        s.set(s.get() + 1);
+        s.get()
+    });
+    host.set_global("Compositor", "request", string(action));
+    host.set_global("Compositor", "request-argument", string(argument));
+    // Set last: shells react to the serial changing.
+    host.set_global("Compositor", "request-serial", Value::Number(serial as f64));
 }

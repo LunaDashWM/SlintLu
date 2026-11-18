@@ -171,7 +171,7 @@ The compositor itself: its name, requests it sends to the shell (keyboard shortc
 | Member | Type | Access | Description |
 |---|---|---|---|
 | `name` | `string` | read | "lunadash", "niri", "hyprland", "sway", … or "unknown". |
-| `request` | `string` | read | The latest request, e.g. "launcher" (argument "true"/"false"), "settings" (argument: the page), "wallpaper-picker", "control-center", "clipboard", "power-menu". React to changes of `request-serial`. |
+| `request` | `string` | read | The latest request to the shell, made with Shell.request (for example by a compositor shortcut running `slintlu msg call Shell.request launcher`): "launcher" (argument "true"/"false", toggle when empty), "settings" (argument: the page), "wallpaper-picker", "control-center", "clipboard", "power-menu", "welcome". React to changes of `request-serial`. |
 | `request-argument` | `string` | read |  |
 | `request-serial` | `int` | read |  |
 | `has-commands` | `bool` | read | Whether `command` is supported (LunaDash). |
@@ -383,6 +383,7 @@ Information about the running shell and actions it can perform.
 | `resources` | `string` | read | Directory of SlintLu's shared assets (res/ in the SlintLu repository), e.g. for Files.image(Shell.resources + "/icons/wifi.svg"). Icons are easier through `Icon`. |
 | `exec(command: string)` | callback | call | Runs a command line through `sh -c`, detached from the shell. |
 | `run(command: string)` | callback | call | Starts a program with arguments, detached from the shell and without a shell: the line is split into words (quotes and backslashes as in sh, a leading ~/ is the home directory) and nothing in it is evaluated, so $VARS, globs, pipes and ; reach the program as text. Use it for commands users type. |
+| `request(action: string, argument: string)` | callback | call | Asks the shell to open something, from outside it: keyboard shortcuts run `slintlu msg call Shell.request launcher` (or "settings" "network", "power-menu", ...). The shell sees it as Compositor.request, Compositor.request-argument and an increased Compositor.request-serial. |
 | `env(name: string)` | callback → `string` | call | An environment variable of the shell process ("" when unset). |
 | `reload()` | callback | call | Reloads the shell configuration. |
 | `quit()` | callback | call | Exits SlintLu. |
