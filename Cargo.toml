@@ -26,6 +26,8 @@ vulkan = ["slint/renderer-femtovg-wgpu", "slint/unstable-wgpu-30", "dep:wgpu", "
 x11 = ["dep:x11rb"]
 
 [dependencies]
+# Installed font families (Theme.fonts); Slint already builds it.
+fontdb = "0.24"
 slint = { version = "~1.18", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
 smithay-client-toolkit = { version = "0.21", default-features = false, features = ["calloop", "xkbcommon", "system"] }
 wayland-client = { version = "0.31", features = ["system"] }

@@ -35,4 +35,11 @@ export global Theme {
     callback set-mode(mode: string);
     // Uses a palette for the current mode, for this session.
     callback set-palette(name: string);
+
+    // Installed font families, sorted; filled in shortly after start.
+    in property <[string]> fonts;
+    // Uses this font family for this session; "" goes back to theme.json's or the desktop's.
+    callback set-font-family(family: string);
+    // Installed families containing every word of the query, names starting with it first.
+    pure callback search-fonts(query: string, limit: int) -> [string];
 }

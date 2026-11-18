@@ -1,5 +1,6 @@
 //! The `Theme` global: palettes from `theme.json`, pywal and the desktop portal. The font
-//! family is `theme.json`'s, else the desktop's interface font.
+//! family is the one chosen with `set-font-family`, else `theme.json`'s, else the desktop's
+//! interface font; `fonts` / `search-fonts` list the installed families.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -7,16 +8,19 @@ use std::rc::Rc;
 use slint::Color as SlintColor;
 use slint_interpreter::Value;
 use slintlu::dbus::portal::{Appearance, ColorScheme, Portal};
-use slintlu::theme::{self, Color, ThemeConfig};
+use slintlu::theme::{self, Color, ThemeConfig, fonts};
 
 use super::worker::spawn_watcher;
-use crate::scripting::bridge::{list_value, string, string_arg};
+use crate::scripting::bridge::{list_value, number_arg, string, string_arg};
 use crate::scripting::{ShellHost, host};
 
 #[derive(Default)]
 struct ThemeState {
     config: ThemeConfig,
     appearance: Option<Appearance>,
+    /// Chosen at run time (`set-font-family`); wins over theme.json.
+    font_family: Option<String>,
+    fonts: Vec<String>,
 }
 
 thread_local! {
@@ -70,10 +74,12 @@ fn publish(host: &ShellHost) {
         ] {
             set(role, color(c));
         }
-        let font_family = if state.config.font_family.is_empty() {
-            state.appearance.as_ref().and_then(|a| a.font_family.as_deref()).unwrap_or_default()
-        } else {
-            state.config.font_family.as_str()
+        let font_family = match &state.font_family {
+            Some(chosen) => chosen.as_str(),
+            None if state.config.font_family.is_empty() => {
+                state.appearance.as_ref().and_then(|a| a.font_family.as_deref()).unwrap_or_default()
+            }
+            None => state.config.font_family.as_str(),
         };
         set("font-family", string(font_family));
         set("font-size", Value::Number(state.config.font_size.into()));
@@ -107,6 +113,47 @@ pub fn install(host: &Rc<ShellHost>) {
         list_value(theme::presets().iter().map(|p| string(&p.name))),
     );
     publish(host);
+
+    std::thread::Builder::new()
+        .name("slintlu-fonts".into())
+        .spawn(|| {
+            let families = fonts::families();
+            host::post(move |host| {
+                host.set_global("Theme", "fonts", list_value(families.iter().map(string)));
+                STATE.with(|s| s.borrow_mut().fonts = families);
+            });
+        })
+        .map_err(|e| log::warn!("cannot list the installed fonts: {e}"))
+        .ok();
+
+    let weak = Rc::downgrade(host);
+    host.on_callback(
+        "Theme",
+        "set-font-family",
+        Rc::new(move |args| {
+            let family = string_arg(args, 0).unwrap_or_default();
+            let family = family.trim();
+            STATE.with(|s| {
+                s.borrow_mut().font_family = (!family.is_empty()).then(|| family.to_owned())
+            });
+            if let Some(host) = weak.upgrade() {
+                publish(&host);
+            }
+            Value::Void
+        }),
+    );
+    host.on_callback(
+        "Theme",
+        "search-fonts",
+        Rc::new(|args| {
+            let query = string_arg(args, 0).unwrap_or_default();
+            let limit = number_arg(args, 1).filter(|l| *l > 0.0).map_or(usize::MAX, |l| l as usize);
+            STATE.with(|s| {
+                let s = s.borrow();
+                list_value(fonts::matching(&s.fonts, &query, limit).into_iter().map(string))
+            })
+        }),
+    );
 
     if let Ok(portal) = Portal::connect() {
         spawn_watcher("theme", move || {

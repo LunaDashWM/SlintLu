@@ -1,7 +1,8 @@
 //! Colour themes: built-in palettes, a `theme.json` in the shell's directory, pywal colours and
-//! automatic light / dark switching.
+//! automatic light / dark switching, and the installed fonts.
 
 mod config;
+pub mod fonts;
 mod palette;
 mod pywal;
 
