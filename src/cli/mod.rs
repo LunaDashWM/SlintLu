@@ -7,6 +7,7 @@ mod msg;
 mod outputs;
 mod run;
 mod signals;
+mod workspaces;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -40,6 +41,8 @@ enum Command {
     },
     /// List the monitors the compositor reports.
     Outputs,
+    /// List the workspaces and windows the compositor reports.
+    Workspaces,
     /// Report what the compositor, graphics stack and desktop services support.
     Info,
     /// Create a starter configuration in ~/.config/slintlu.
@@ -87,6 +90,7 @@ pub fn main() -> ExitCode {
         Some(Command::Run(args)) => run::run(args),
         Some(Command::Check { path }) => check::check(path),
         Some(Command::Outputs) => outputs::outputs(),
+        Some(Command::Workspaces) => workspaces::workspaces(),
         Some(Command::Info) => info::info(),
         Some(Command::Init { dir, force }) => init::init(dir, force),
         Some(Command::Msg { command }) => msg::msg(command),

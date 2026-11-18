@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 use slint_interpreter::Value;
 use slintlu::compositors::{
-    self, Action, Backend, Compositor, DesktopState, SwitcherItem, SwitcherState, WallpaperEntry,
-    Window,
+    self, Action, Backend, Compositor, DesktopState, Shortcut, SwitcherItem, SwitcherState,
+    WallpaperEntry, Window,
 };
 
 use super::worker::{run_action, spawn_watcher};
@@ -34,6 +34,8 @@ thread_local! {
         const { RefCell::new((serde_json::Value::Null, 0)) };
     /// The wallpaper library as last published, for `filter-wallpapers`.
     static WALLPAPERS: RefCell<Vec<WallpaperEntry>> = const { RefCell::new(Vec::new()) };
+    /// The shortcuts as last published: the model is only rebuilt when they change.
+    static SHORTCUTS: RefCell<Vec<Shortcut>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Implements `Compositor.filter-wallpapers`.
@@ -152,11 +154,15 @@ fn publish(host: &ShellHost, state: &DesktopState) {
         set_preferences(host, |p| *p = preferences);
     }
     host.set_global("Compositor", "language", string(&state.language));
-    if let Some(request) = &state.request {
-        host.set_global("Compositor", "request", string(&request.action));
-        host.set_global("Compositor", "request-argument", string(&request.argument));
-        // Set last: shells react to the serial changing.
-        host.set_global("Compositor", "request-serial", Value::Number(request.serial as f64));
+    if SHORTCUTS.with(|s| *s.borrow() != state.shortcuts) {
+        let shortcuts = state.shortcuts.iter().map(|shortcut| {
+            struct_value([
+                ("action", string(&shortcut.action)),
+                ("keys", list_value(shortcut.keys.iter().map(string))),
+            ])
+        });
+        host.set_global("Compositor", "shortcuts", list_value(shortcuts));
+        SHORTCUTS.with(|s| *s.borrow_mut() = state.shortcuts.clone());
     }
 }
 

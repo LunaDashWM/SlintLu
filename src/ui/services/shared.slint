@@ -23,4 +23,10 @@ export global Shared {
     // Appends a value (if missing) / removes every occurrence.
     callback list-add(key: string, value: string);
     callback list-remove(key: string, value: string);
+    // Inserts a value before a position (duplicates allowed; past the end or negative appends).
+    callback list-insert(key: string, index: int, value: string);
+    // Moves the value at `from` to position `to` (clamped to the list).
+    callback list-move(key: string, from: int, to: int);
+    // Removes the value at one position.
+    callback list-remove-at(key: string, index: int);
 }

@@ -22,7 +22,7 @@ An ordinary application window (settings, dialogs …), shown once.
 
 ### Icon (inherits `Image`)
 
-One of SlintLu's stroke icons by name, tinted with `color`. Names: apps, arrow-left, arrow-right, arrow-up, battery, battery-charging, bell, bell-off, bluetooth, brightness, calendar, check, chevron-down, chevron-left, chevron-right, clipboard, close, coffee, cpu, dashboard, diamond, disk, dock, document, download, enter, ethernet, eye, eye-off, file, folder, globe, grid, home, image, info, keyboard, language, list, lock, logout, maximize, memory, mic, minus, monitor, moon, music, network, next, palette, panel, pause, play, plus, power, previous, reboot, screenshot, search, settings, sleep, sun, terminal, thermometer, trash, usb, user, video, volume, volume-low, volume-mute, warning, wifi, wifi-off, window, workspace. Unknown names show "info".
+One of SlintLu's stroke icons by name, tinted with `color`. Names: apps, arrow-down, arrow-left, arrow-right, arrow-up, battery, battery-charging, bell, bell-off, bluetooth, brightness, calendar, check, chevron-down, chevron-left, chevron-right, clipboard, close, coffee, cpu, dashboard, diamond, disk, dock, document, download, edit, enter, ethernet, eye, eye-off, file, folder, globe, grid, home, image, info, keyboard, language, list, lock, logout, maximize, memory, mic, minus, monitor, moon, music, network, next, palette, panel, pause, play, plus, power, previous, reboot, screenshot, search, settings, sleep, sun, terminal, thermometer, trash, usb, user, video, volume, volume-low, volume-mute, warning, wifi, wifi-off, window, workspace. Unknown names show "info".
 
 | Member | Type | Access | Description |
 |---|---|---|---|
@@ -171,7 +171,7 @@ The compositor itself: its name, requests it sends to the shell (keyboard shortc
 | Member | Type | Access | Description |
 |---|---|---|---|
 | `name` | `string` | read | "lunadash", "niri", "hyprland", "sway", … or "unknown". |
-| `request` | `string` | read | The latest request, e.g. "launcher" (argument "true"/"false"), "settings" (argument: the page), "wallpaper-picker", "control-center", "clipboard", "power-menu". React to changes of `request-serial`. |
+| `request` | `string` | read | The latest request to the shell, made with Shell.request (for example by a compositor shortcut running `slintlu msg call Shell.request launcher`): "launcher" (argument "true"/"false", toggle when empty), "settings" (argument: the page), "wallpaper-picker", "control-center", "clipboard", "power-menu", "welcome". React to changes of `request-serial`. |
 | `request-argument` | `string` | read |  |
 | `request-serial` | `int` | read |  |
 | `has-commands` | `bool` | read | Whether `command` is supported (LunaDash). |
@@ -181,6 +181,7 @@ The compositor itself: its name, requests it sends to the shell (keyboard shortc
 | `language` | `string` | read | The desktop language chosen in the compositor (LunaDash), e.g. "zh_TW"; empty otherwise. |
 | `wallpapers` | `[WallpaperInfo]` | read | The compositor's wallpaper library (LunaDash): its folder plus the bundled wallpapers. |
 | `wallpaper-directory` | `string` | read |  |
+| `shortcuts` | `[ShortcutInfo]` | read | The compositor's keyboard shortcuts, sorted by action (LunaDash); empty otherwise. |
 | `wallpaper-categories` | `[string]` | read | The categories (subfolders) of the wallpaper library, sorted. |
 | `preferences-revision` | `int` | read | Increases when the compositor's preferences change; pass it to the preference-* readers. |
 | `filter-wallpapers(query: string, collection: string, category: string, kind: string, revision: int)` | callback → `[WallpaperInfo]` | call | The library entries matching a search: `collection` is "library" (all), "bundled" or "favorites"; `category` "" for all; `kind` "all", "image" or "video". Pass `wallpapers.length` (or any value that changes with the library) as `revision`. |
@@ -364,6 +365,9 @@ State shared by all windows of the shell. Globals you define yourself exist once
 | `set-list(key: string, values: [string])` | callback | call |  |
 | `list-add(key: string, value: string)` | callback | call | Appends a value (if missing) / removes every occurrence. |
 | `list-remove(key: string, value: string)` | callback | call |  |
+| `list-insert(key: string, index: int, value: string)` | callback | call | Inserts a value before a position (duplicates allowed; past the end or negative appends). |
+| `list-move(key: string, from: int, to: int)` | callback | call | Moves the value at `from` to position `to` (clamped to the list). |
+| `list-remove-at(key: string, index: int)` | callback | call | Removes the value at one position. |
 
 ### Shell
 
@@ -378,6 +382,8 @@ Information about the running shell and actions it can perform.
 | `version` | `string` | read |  |
 | `resources` | `string` | read | Directory of SlintLu's shared assets (res/ in the SlintLu repository), e.g. for Files.image(Shell.resources + "/icons/wifi.svg"). Icons are easier through `Icon`. |
 | `exec(command: string)` | callback | call | Runs a command line through `sh -c`, detached from the shell. |
+| `run(command: string)` | callback | call | Starts a program with arguments, detached from the shell and without a shell: the line is split into words (quotes and backslashes as in sh, a leading ~/ is the home directory) and nothing in it is evaluated, so $VARS, globs, pipes and ; reach the program as text. Use it for commands users type. |
+| `request(action: string, argument: string)` | callback | call | Asks the shell to open something, from outside it: keyboard shortcuts run `slintlu msg call Shell.request launcher` (or "settings" "network", "power-menu", ...). The shell sees it as Compositor.request, Compositor.request-argument and an increased Compositor.request-serial. |
 | `env(name: string)` | callback → `string` | call | An environment variable of the shell process ("" when unset). |
 | `reload()` | callback | call | Reloads the shell configuration. |
 | `quit()` | callback | call | Exits SlintLu. |
@@ -402,6 +408,9 @@ Settings that survive restarts, stored per shell in $XDG_STATE_HOME/slintlu. Rea
 | `set-list(key: string, values: [string])` | callback | call |  |
 | `list-add(key: string, value: string)` | callback | call | Appends a value (if missing) / removes every occurrence. |
 | `list-remove(key: string, value: string)` | callback | call |  |
+| `list-insert(key: string, index: int, value: string)` | callback | call | Inserts a value before a position (duplicates allowed; past the end or negative appends). |
+| `list-move(key: string, from: int, to: int)` | callback | call | Moves the value at `from` to position `to` (clamped to the list). |
+| `list-remove-at(key: string, index: int)` | callback | call | Removes the value at one position. |
 
 ### Switcher
 
@@ -667,6 +676,15 @@ A monitor.
 | `width` | `int` |  |  |
 | `height` | `int` |  |  |
 | `scale` | `int` |  |  |
+
+### ShortcutInfo
+
+A keyboard shortcut of the compositor (LunaDash): its action, e.g. "closeWindow", and its keys, e.g. ["Meta", "Q"].
+
+| Member | Type | Access | Description |
+|---|---|---|---|
+| `action` | `string` |  |  |
+| `keys` | `[string]` |  |  |
 
 ### SwitcherEntry
 

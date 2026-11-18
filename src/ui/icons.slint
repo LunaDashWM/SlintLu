@@ -2,7 +2,7 @@
 
 import { Theme } from "services/theme.slint";
 
-// One of SlintLu's stroke icons by name, tinted with `color`. Names: apps, arrow-left, arrow-right, arrow-up, battery, battery-charging, bell, bell-off, bluetooth, brightness, calendar, check, chevron-down, chevron-left, chevron-right, clipboard, close, coffee, cpu, dashboard, diamond, disk, dock, document, download, enter, ethernet, eye, eye-off, file, folder, globe, grid, home, image, info, keyboard, language, list, lock, logout, maximize, memory, mic, minus, monitor, moon, music, network, next, palette, panel, pause, play, plus, power, previous, reboot, screenshot, search, settings, sleep, sun, terminal, thermometer, trash, usb, user, video, volume, volume-low, volume-mute, warning, wifi, wifi-off, window, workspace. Unknown names show "info".
+// One of SlintLu's stroke icons by name, tinted with `color`. Names: apps, arrow-down, arrow-left, arrow-right, arrow-up, battery, battery-charging, bell, bell-off, bluetooth, brightness, calendar, check, chevron-down, chevron-left, chevron-right, clipboard, close, coffee, cpu, dashboard, diamond, disk, dock, document, download, edit, enter, ethernet, eye, eye-off, file, folder, globe, grid, home, image, info, keyboard, language, list, lock, logout, maximize, memory, mic, minus, monitor, moon, music, network, next, palette, panel, pause, play, plus, power, previous, reboot, screenshot, search, settings, sleep, sun, terminal, thermometer, trash, usb, user, video, volume, volume-low, volume-mute, warning, wifi, wifi-off, window, workspace. Unknown names show "info".
 export component Icon inherits Image {
     // The icon's file name in res/icons, without ".svg".
     in property <string> name;
@@ -14,6 +14,7 @@ export component Icon inherits Image {
     height: 20px;
     source:
         root.name == "apps" ? @image-url("res/icons/apps.svg") :
+        root.name == "arrow-down" ? @image-url("res/icons/arrow-down.svg") :
         root.name == "arrow-left" ? @image-url("res/icons/arrow-left.svg") :
         root.name == "arrow-right" ? @image-url("res/icons/arrow-right.svg") :
         root.name == "arrow-up" ? @image-url("res/icons/arrow-up.svg") :
@@ -38,6 +39,7 @@ export component Icon inherits Image {
         root.name == "dock" ? @image-url("res/icons/dock.svg") :
         root.name == "document" ? @image-url("res/icons/document.svg") :
         root.name == "download" ? @image-url("res/icons/download.svg") :
+        root.name == "edit" ? @image-url("res/icons/edit.svg") :
         root.name == "enter" ? @image-url("res/icons/enter.svg") :
         root.name == "ethernet" ? @image-url("res/icons/ethernet.svg") :
         root.name == "eye" ? @image-url("res/icons/eye.svg") :

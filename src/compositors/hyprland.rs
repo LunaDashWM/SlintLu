@@ -142,7 +142,6 @@ fn build_state(
             .and_then(|k| k["active_keymap"].as_str())
             .unwrap_or_default()
             .to_owned(),
-        request: None,
         ..DesktopState::default()
     };
     state.normalize();

@@ -27,15 +27,12 @@ pub struct Window {
     pub urgent: bool,
 }
 
-/// The compositor asking the shell to do something, e.g. open its launcher from a keyboard
-/// shortcut.
+/// A keyboard shortcut the compositor binds: its action and its keys, e.g. `closeWindow` and
+/// `["Meta", "Q"]`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct CompositorRequest {
-    /// Increases with every request, so repeated requests are distinguishable.
-    pub serial: u64,
-    /// e.g. "launcher", "settings", "wallpaper-picker", "control-center", "power-menu".
+pub struct Shortcut {
     pub action: String,
-    pub argument: String,
+    pub keys: Vec<String>,
 }
 
 /// Everything a shell typically shows about the desktop.
@@ -45,8 +42,6 @@ pub struct DesktopState {
     pub workspaces: Vec<Workspace>,
     pub windows: Vec<Window>,
     pub keyboard_layout: String,
-    /// The latest request from the compositor, for compositors that send them.
-    pub request: Option<CompositorRequest>,
     /// The wallpaper image, for compositors that manage it (a local path; empty otherwise).
     pub wallpaper: String,
     /// A still frame of a video wallpaper (a local path; empty for images).
@@ -63,6 +58,9 @@ pub struct DesktopState {
     pub language: String,
     /// The compositor is ending the session and asks its shell to exit (LunaDash).
     pub session_ending: bool,
+    /// The compositor's keyboard shortcuts, sorted by action, for compositors that report them
+    /// (LunaDash). Disabled shortcuts are left out.
+    pub shortcuts: Vec<Shortcut>,
 }
 
 impl DesktopState {
