@@ -349,15 +349,27 @@ pub fn install(host: &Rc<ShellHost>, compositor: Compositor) {
         })
     });
 
+    // One thread sends the commands, in the order the shell gave them: a
+    // thread each could deliver "stop capturing keys" before "start".
+    let (send, queue) = std::sync::mpsc::channel::<(String, String)>();
     let commands = backend.clone();
+    let spawned = std::thread::Builder::new().name("slintlu-commands".into()).spawn(move || {
+        for (method, value) in queue {
+            if let Err(e) = commands.command(&method, &value) {
+                log::warn!("compositor command {method}: {e}");
+            }
+        }
+    });
+    if let Err(e) = spawned {
+        log::error!("cannot start the compositor command thread: {e}");
+    }
     host.on_callback(
         "Compositor",
         "command",
         Rc::new(move |args| {
             if let Some(method) = string_arg(args, 0) {
                 let value = string_arg(args, 1).unwrap_or_default();
-                let backend = commands.clone();
-                run_action("compositor", move || backend.command(&method, &value).map(drop));
+                let _ = send.send((method, value));
             }
             Value::Void
         }),

@@ -18,7 +18,9 @@ use crate::util::uri::path_from_path_or_uri;
 /// The number of workspaces of LunaDash versions that do not report it (they had ten).
 const DEFAULT_WORKSPACES: i64 = 10;
 const POLL: Duration = Duration::from_millis(700);
-const TIMEOUT: Duration = Duration::from_millis(1500);
+// A reply may wait for the compositor to finish a long frame: giving up early
+// only hides the outcome, since the request is already sent.
+const TIMEOUT: Duration = Duration::from_millis(5000);
 
 pub struct LunaDash {
     socket: PathBuf,
