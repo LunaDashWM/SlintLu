@@ -282,6 +282,13 @@ Network status from NetworkManager.
 | `strength` | `float` | read | Wi-Fi signal strength in 0..1. |
 | `wifi-enabled` | `bool` | read |  |
 | `set-wifi-enabled(enabled: bool)` | callback | call |  |
+| `networks` | `[WifiNetwork]` | read | Wi-Fi networks in range, the connected one first, then by signal; filled by `scan`. |
+| `scanning` | `bool` | read | A scan runs. |
+| `connecting` | `string` | read | The network being connected to, or "". |
+| `error` | `string` | read | Why the last connection failed, or "". |
+| `scan()` | callback | call | Looks for networks and lists them in `networks` (call it while a network list shows). |
+| `connect-wifi(ssid: string, password: string)` | callback | call | Connects to a network; `password` for a secured one that is not saved ("" otherwise). |
+| `disconnect-wifi()` | callback | call | Disconnects from the Wi-Fi network. |
 
 ### Notifications
 
@@ -762,6 +769,18 @@ A wallpaper in the compositor's library (LunaDash).
 | `bundled` | `bool` |  |  |
 | `favorite` | `bool` |  |  |
 | `preview` | `string` |  | A still image of it: the file itself for images, a poster frame for videos. |
+
+### WifiNetwork
+
+A Wi-Fi network in range (its strongest access point).
+
+| Member | Type | Access | Description |
+|---|---|---|---|
+| `ssid` | `string` |  |  |
+| `strength` | `float` |  | 0..1 |
+| `secure` | `bool` |  | Needs a password. |
+| `active` | `bool` |  | Connected to it now. |
+| `known` | `bool` |  | Saved: connecting needs no password. |
 
 ### WindowInfo
 

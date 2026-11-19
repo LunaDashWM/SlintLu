@@ -1,3 +1,16 @@
+// A Wi-Fi network in range (its strongest access point).
+export struct WifiNetwork {
+    ssid: string,
+    // 0..1
+    strength: float,
+    // Needs a password.
+    secure: bool,
+    // Connected to it now.
+    active: bool,
+    // Saved: connecting needs no password.
+    known: bool,
+}
+
 // Network status from NetworkManager.
 export global Network {
     in property <bool> available;
@@ -14,4 +27,19 @@ export global Network {
     in property <bool> wifi-enabled;
 
     callback set-wifi-enabled(enabled: bool);
+
+    // Wi-Fi networks in range, the connected one first, then by signal; filled by `scan`.
+    in property <[WifiNetwork]> networks;
+    // A scan runs.
+    in property <bool> scanning;
+    // The network being connected to, or "".
+    in property <string> connecting;
+    // Why the last connection failed, or "".
+    in property <string> error;
+    // Looks for networks and lists them in `networks` (call it while a network list shows).
+    callback scan();
+    // Connects to a network; `password` for a secured one that is not saved ("" otherwise).
+    callback connect-wifi(ssid: string, password: string);
+    // Disconnects from the Wi-Fi network.
+    callback disconnect-wifi();
 }

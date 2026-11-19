@@ -66,6 +66,8 @@ impl WaylandPlatform {
             layer_shell,
             xdg_shell,
             activation,
+            seat: RefCell::default(),
+            pressed_surface: RefCell::default(),
             shm,
             clipboard: crate::clipboard::ClipboardState::new(&globals, &qh),
             clipboard_history: crate::clipboard::ClipboardHistory::new(&globals, &qh),

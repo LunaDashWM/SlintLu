@@ -66,6 +66,7 @@ impl PointerHandler for State {
                 PointerEventKind::Motion { .. } => WindowEvent::PointerMoved { position },
                 PointerEventKind::Press { button, serial, .. } => {
                     self.ctx.clipboard.last_serial.set(serial);
+                    *self.ctx.pressed_surface.borrow_mut() = Some(event.surface.clone());
                     WindowEvent::PointerPressed { position, button: pointer_button(button) }
                 }
                 PointerEventKind::Release { button, .. } => {

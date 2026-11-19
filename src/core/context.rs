@@ -5,6 +5,7 @@ use std::rc::{Rc, Weak};
 
 use smithay_client_toolkit::compositor::CompositorState;
 use smithay_client_toolkit::reexports::client::protocol::wl_output::WlOutput;
+use smithay_client_toolkit::reexports::client::protocol::wl_seat::WlSeat;
 use smithay_client_toolkit::reexports::client::protocol::wl_surface::WlSurface;
 use smithay_client_toolkit::reexports::client::{Connection, QueueHandle};
 use smithay_client_toolkit::session_lock::{SessionLock, SessionLockState};
@@ -30,6 +31,10 @@ pub(crate) struct Context {
     pub layer_shell: Option<LayerShell>,
     pub xdg_shell: Option<XdgShell>,
     pub activation: Option<ActivationState>,
+    /// The first seat, and the surface its pointer last pressed: what a request made by that
+    /// click (an xdg-activation token) names as its source.
+    pub seat: RefCell<Option<WlSeat>>,
+    pub pressed_surface: RefCell<Option<WlSurface>>,
     pub shm: Shm,
     pub clipboard: crate::clipboard::ClipboardState,
     pub clipboard_history: crate::clipboard::ClipboardHistory,

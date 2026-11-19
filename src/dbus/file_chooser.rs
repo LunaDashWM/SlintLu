@@ -53,41 +53,27 @@ pub struct ChooseRequest {
     pub on_selected: Arc<dyn Fn(Option<PathBuf>) + Send + Sync>,
 }
 
-/// Requests an activation token from the Wayland compositor, if available, then opens the
-/// portal chooser. X11 gets an explicit parent XID.
+/// Opens the portal chooser with an xdg-activation token for the click that asked for it, so the
+/// compositor shows the dialog above the shell surface that was clicked (a layer surface too)
+/// and focuses it. X11 gets an explicit parent XID.
 pub fn request(request: ChooseRequest) {
     let ChooseRequest { options, on_selected } = request;
     if let Some(ctx) = crate::core::context::current()
         && let Some(activation) = ctx.activation.as_ref()
+        && let Some(seat) = ctx.seat.borrow().clone()
+        && let Some(surface) = ctx.pressed_surface.borrow().clone()
     {
-        let surface = ctx
-            .live_windows()
-            .into_iter()
-            .rev()
-            .find(|window| {
-                window.is_shown()
-                    && matches!(
-                        window.role(),
-                        crate::shell::config::SurfaceRole::Toplevel { .. }
-                    )
-            })
-            .map(|window| window.wl_surface().clone());
-        if let Some(surface) = surface {
-            use smithay_client_toolkit::activation::RequestData;
-            activation.request_token(
-                &ctx.qh,
-                RequestData {
-                    app_id: Some("slintlu".to_owned()),
-                    seat_and_serial: None,
-                    surface: Some(surface),
-                    udata: ChooseRequest {
-                        options: options.clone(),
-                        on_selected: on_selected.clone(),
-                    },
-                },
-            );
-            return;
-        }
+        use smithay_client_toolkit::activation::RequestData;
+        activation.request_token(
+            &ctx.qh,
+            RequestData {
+                app_id: Some("slintlu".to_owned()),
+                seat_and_serial: Some((seat, ctx.clipboard.last_serial.get())),
+                surface: Some(surface),
+                udata: ChooseRequest { options, on_selected },
+            },
+        );
+        return;
     }
 
     std::thread::spawn(move || match choose(&options) {

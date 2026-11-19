@@ -39,6 +39,7 @@ impl SeatHandler for State {
     }
 
     fn new_seat(&mut self, _: &Connection, qh: &QueueHandle<Self>, seat: wl_seat::WlSeat) {
+        self.ctx.seat.borrow_mut().get_or_insert_with(|| seat.clone());
         self.ctx.clipboard.add_seat(&seat, qh);
         self.ctx.clipboard_history.add_seat(&seat, qh);
         self.ctx.idle.set_seat(&seat);
