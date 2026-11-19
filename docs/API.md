@@ -182,8 +182,12 @@ The compositor itself: its name, requests it sends to the shell (keyboard shortc
 | `language` | `string` | read | The desktop language chosen in the compositor (LunaDash), e.g. "zh_TW"; empty otherwise. |
 | `wallpapers` | `[WallpaperInfo]` | read | The compositor's wallpaper library (LunaDash): its folder plus the bundled wallpapers. |
 | `wallpaper-directory` | `string` | read |  |
-| `shortcuts` | `[ShortcutInfo]` | read | The compositor's keyboard shortcuts, sorted by action (LunaDash); empty otherwise. |
-| `shortcut-owner(keys: string)` | callback → `string` | call | The action bound to `keys` ("Meta+Shift+S", any case), or "" when none: for shortcut editors to report a conflict before assigning. |
+| `bindings` | `[KeyBindingInfo]` | read | The compositor's key bindings, normal mode first, then by action (LunaDash); empty otherwise. |
+| `binding-for(mode: string, keys: string)` | callback → `string` | call | The action bound to `keys` ("Meta+Shift+S", any case) in `mode`, or "" when none: for binding editors to report a conflict before assigning. |
+| `keys-for(mode: string, action: string)` | callback → `[string]` | call | The keys of a binding of `action` in `mode` (["Meta", "Q"]), one with modifiers first, or none. |
+| `bind(mode: string, keys: string, action: string, replace: string)` | callback | call | Binds `keys` to `action` in `mode` ("normal", "overview"); `replace`: the keys the binding had before, when it moves (else ""). Fails into `command-error`. |
+| `unbind(mode: string, keys: string)` | callback | call |  |
+| `command-error` | `string` | read | Why the last compositor command failed ("Meta+Q is already bound to close-window."), or "" once one succeeds. |
 | `wallpaper-categories` | `[string]` | read | The categories (subfolders) of the wallpaper library, sorted. |
 | `preferences-revision` | `int` | read | Increases when the compositor's preferences change; pass it to the preference-* readers. |
 | `filter-wallpapers(query: string, collection: string, category: string, kind: string, revision: int)` | callback → `[WallpaperInfo]` | call | The library entries matching a search: `collection` is "library" (all), "bundled" or "favorites"; `category` "" for all; `kind` "all", "image" or "video". Pass `wallpapers.length` (or any value that changes with the library) as `revision`. |
@@ -334,7 +338,7 @@ Session and power actions through systemd-logind.
 
 ### Session
 
-The session lock. Define a component inheriting `LockWindow` to enable locking.
+The session lock and the user's account. Define a component inheriting `LockWindow` to enable locking.
 
 | Member | Type | Access | Description |
 |---|---|---|---|
@@ -343,9 +347,13 @@ The session lock. Define a component inheriting `LockWindow` to enable locking.
 | `authenticating` | `bool` | read | A password check is running. |
 | `message` | `string` | read | Feedback for the lock screen, e.g. "Authentication failure". |
 | `lock-before-sleep` | `bool` | read = `true` | Lock automatically before the machine suspends (see `set-lock-before-sleep`). |
+| `real-name` | `string` | read | The account's full name ("" without one) and picture (AccountsService, else ~/.face). |
+| `avatar` | `image` | read |  |
+| `avatar-error` | `string` | read | Why the last set-avatar failed, or "". |
 | `lock()` | callback | call | Locks now (also triggered by `loginctl lock-session` and `Power.lock()`). |
 | `authenticate(password: string)` | callback | call | Checks the password with PAM and unlocks on success. |
 | `set-lock-before-sleep(enabled: bool)` | callback | call |  |
+| `set-avatar(path: string)` | callback | call | Makes an image file the account picture: cropped square to ~/.face, and the login screen's through AccountsService. |
 
 ### Shared
 
@@ -483,6 +491,9 @@ The colour theme: a built-in palette (or pywal colours) chosen by the desktop's 
 | `radius` | `length` | read = `10px` |  |
 | `set-mode(mode: string)` | callback | call | "auto" (follow the desktop), "dark" or "light", for this session. |
 | `set-palette(name: string)` | callback | call | Uses a palette for the current mode, for this session. |
+| `fonts` | `[string]` | read | Installed font families, sorted; filled in shortly after start. |
+| `set-font-family(family: string)` | callback | call | Uses this font family for this session; "" goes back to theme.json's or the desktop's. |
+| `search-fonts(query: string, limit: int)` | callback → `[string]` | call | Installed families containing every word of the query, names starting with it first. |
 
 ### Tray
 
@@ -601,6 +612,19 @@ An application with its open windows, for docks and task bars (see `Apps.group-w
 | `name` | `string` |  |  |
 | `is-dir` | `bool` |  |  |
 
+### KeyBindingInfo
+
+A key the compositor binds (LunaDash): its mode ("normal", or "overview" while the overview is open), its keys (["Meta", "Q"]; "Meta+Q" as written in combo) and its action with the arguments ("focus-workspace 3"), also apart: name "focus-workspace", argument "3".
+
+| Member | Type | Access | Description |
+|---|---|---|---|
+| `mode` | `string` |  |  |
+| `keys` | `[string]` |  |  |
+| `combo` | `string` |  |  |
+| `action` | `string` |  |  |
+| `name` | `string` |  |  |
+| `argument` | `string` |  |  |
+
 ### MediaPlayerInfo
 
 | Member | Type | Access | Description |
@@ -679,15 +703,6 @@ A monitor.
 | `height` | `int` |  |  |
 | `scale` | `int` |  |  |
 
-### ShortcutInfo
-
-A keyboard shortcut of the compositor (LunaDash): its action, e.g. "closeWindow", and its keys, e.g. ["Meta", "Q"].
-
-| Member | Type | Access | Description |
-|---|---|---|---|
-| `action` | `string` |  |  |
-| `keys` | `[string]` |  |  |
-
 ### SwitcherEntry
 
 | Member | Type | Access | Description |
@@ -700,6 +715,7 @@ A keyboard shortcut of the compositor (LunaDash): its action, e.g. "closeWindow"
 | `focused` | `bool` |  |  |
 | `minimized` | `bool` |  |  |
 | `icons` | `[image]` |  | Workspace switcher: icons of the applications on the workspace. |
+| `preview` | `image` |  | A picture of the window, once the compositor took one (else empty). |
 
 ### Temperature
 

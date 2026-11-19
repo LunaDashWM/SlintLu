@@ -11,11 +11,16 @@ export struct WallpaperInfo {
     preview: string,
 }
 
-// A keyboard shortcut of the compositor (LunaDash): its action, e.g. "closeWindow", and its
-// keys, e.g. ["Meta", "Q"].
-export struct ShortcutInfo {
-    action: string,
+// A key the compositor binds (LunaDash): its mode ("normal", or "overview" while the overview
+// is open), its keys (["Meta", "Q"]; "Meta+Q" as written in combo) and its action with the
+// arguments ("focus-workspace 3"), also apart: name "focus-workspace", argument "3".
+export struct KeyBindingInfo {
+    mode: string,
     keys: [string],
+    combo: string,
+    action: string,
+    name: string,
+    argument: string,
 }
 // The compositor itself: its name, requests it sends to the shell (keyboard shortcuts that
 // open shell UI) and compositor-specific commands.
@@ -45,11 +50,22 @@ export global Compositor {
     // The compositor's wallpaper library (LunaDash): its folder plus the bundled wallpapers.
     in property <[WallpaperInfo]> wallpapers;
     in property <string> wallpaper-directory;
-    // The compositor's keyboard shortcuts, sorted by action (LunaDash); empty otherwise.
-    in property <[ShortcutInfo]> shortcuts;
-    // The action bound to `keys` ("Meta+Shift+S", any case), or "" when none: for
-    // shortcut editors to report a conflict before assigning.
-    pure callback shortcut-owner(keys: string) -> string;
+    // The compositor's key bindings, normal mode first, then by action (LunaDash); empty
+    // otherwise.
+    in property <[KeyBindingInfo]> bindings;
+    // The action bound to `keys` ("Meta+Shift+S", any case) in `mode`, or "" when none: for
+    // binding editors to report a conflict before assigning.
+    pure callback binding-for(mode: string, keys: string) -> string;
+    // The keys of a binding of `action` in `mode` (["Meta", "Q"]), one with modifiers first, or
+    // none.
+    pure callback keys-for(mode: string, action: string) -> [string];
+    // Binds `keys` to `action` in `mode` ("normal", "overview"); `replace`: the keys the
+    // binding had before, when it moves (else ""). Fails into `command-error`.
+    callback bind(mode: string, keys: string, action: string, replace: string);
+    callback unbind(mode: string, keys: string);
+    // Why the last compositor command failed ("Meta+Q is already bound to close-window."),
+    // or "" once one succeeds.
+    in property <string> command-error;
     // The categories (subfolders) of the wallpaper library, sorted.
     in property <[string]> wallpaper-categories;
     // Increases when the compositor's preferences change; pass it to the preference-* readers.

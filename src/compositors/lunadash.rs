@@ -11,7 +11,8 @@ use serde_json::{Value, json};
 
 use super::Backend;
 use super::model::{
-    Action, DesktopState, Shortcut, SwitcherItem, SwitcherState, WallpaperEntry, Window, Workspace,
+    Action, DesktopState, KeyBinding, SwitcherItem, SwitcherState, WallpaperEntry, Window,
+    Workspace,
 };
 use crate::util::uri::path_from_path_or_uri;
 
@@ -127,25 +128,37 @@ fn build_state(status: &Value) -> DesktopState {
             .unwrap_or_default(),
         language: status["language"].as_str().unwrap_or_default().to_owned(),
         session_ending: status["shutdown"].as_bool().unwrap_or(false),
-        shortcuts: shortcuts(&status["shortcuts"]),
+        bindings: bindings(&status["keybindings"]),
     };
     state.normalize();
     state
 }
 
-/// LunaDash's shortcut bindings (`{"closeWindow": "Meta+Q", …}`), sorted by action.
-fn shortcuts(bindings: &Value) -> Vec<Shortcut> {
-    let mut list: Vec<Shortcut> = bindings
+/// LunaDash's key bindings (`{"normal": {"Meta+Q": "close-window", …}, "overview": {…}}`):
+/// normal mode first, then by action and keys.
+fn bindings(modes: &Value) -> Vec<KeyBinding> {
+    let mut list: Vec<KeyBinding> = modes
         .as_object()
         .into_iter()
         .flatten()
-        .filter_map(|(action, keys)| {
-            let keys = keys.as_str()?;
-            (!keys.is_empty() && keys != "Disabled")
-                .then(|| Shortcut { action: action.clone(), keys: split_keys(keys) })
+        .flat_map(|(mode, keys)| {
+            keys.as_object().into_iter().flatten().filter_map(move |(keys, action)| {
+                Some(KeyBinding {
+                    mode: mode.clone(),
+                    keys: split_keys(keys),
+                    action: action.as_str().filter(|a| !a.is_empty())?.to_owned(),
+                })
+            })
         })
         .collect();
-    list.sort_by(|a, b| a.action.cmp(&b.action));
+    list.sort_by(|a, b| {
+        (a.mode != "normal", &a.mode, &a.action, &a.keys).cmp(&(
+            b.mode != "normal",
+            &b.mode,
+            &b.action,
+            &b.keys,
+        ))
+    });
     list
 }
 
@@ -373,8 +386,11 @@ mod tests {
             ],
             "wallpaperImage": "file:///usr/share/backgrounds/Night%20Sky.png",
             "language": "zh_TW",
-            "shortcuts": {"screenshot": "Meta+Shift+S", "closeWindow": "Meta+Q",
-                          "widenColumn": "Meta++", "launchFiles": "Disabled"}
+            "keybindings": {
+                "overview": {"Escape": "close-overview"},
+                "normal": {"Meta+Shift+S": "screenshot", "Meta+Q": "close-window",
+                           "Meta++": "set-column-width +10%", "Meta+T": ""}
+            }
         });
         let state = build_state(&status);
         assert_eq!(state.workspaces.len(), 10);
@@ -386,13 +402,13 @@ mod tests {
         assert_eq!(state.wallpaper, "/usr/share/backgrounds/Night Sky.png");
         assert_eq!(state.language, "zh_TW");
         let keys = |action: &str| {
-            state.shortcuts.iter().find(|s| s.action == action).map(|s| s.keys.join(" "))
+            state.bindings.iter().find(|b| b.action == action).map(|b| b.keys.join(" "))
         };
-        assert_eq!(state.shortcuts.len(), 3);
-        assert_eq!(state.shortcuts[0].action, "closeWindow");
+        assert_eq!(state.bindings.len(), 4, "an empty action binds nothing");
+        assert_eq!(state.bindings[0].action, "close-window");
+        assert_eq!(state.bindings[3].mode, "overview", "overview bindings come last");
         assert_eq!(keys("screenshot").as_deref(), Some("Meta Shift S"));
-        assert_eq!(keys("widenColumn").as_deref(), Some("Meta +"));
-        assert_eq!(keys("launchFiles"), None);
+        assert_eq!(keys("set-column-width +10%").as_deref(), Some("Meta +"));
         assert!(!state.session_ending);
         assert!(build_state(&json!({"shutdown": true})).session_ending);
     }

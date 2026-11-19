@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use slint_interpreter::Value;
 use slintlu::compositors::{
-    self, Action, Backend, Compositor, DesktopState, Shortcut, SwitcherItem, SwitcherState,
+    self, Action, Backend, Compositor, DesktopState, KeyBinding, SwitcherItem, SwitcherState,
     WallpaperEntry, Window,
 };
 
@@ -34,8 +34,8 @@ thread_local! {
         const { RefCell::new((serde_json::Value::Null, 0)) };
     /// The wallpaper library as last published, for `filter-wallpapers`.
     static WALLPAPERS: RefCell<Vec<WallpaperEntry>> = const { RefCell::new(Vec::new()) };
-    /// The shortcuts as last published: the model is only rebuilt when they change.
-    static SHORTCUTS: RefCell<Vec<Shortcut>> = const { RefCell::new(Vec::new()) };
+    /// The key bindings as last published: the model is only rebuilt when they change.
+    static BINDINGS: RefCell<Vec<KeyBinding>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Implements `Compositor.filter-wallpapers`.
@@ -154,15 +154,21 @@ fn publish(host: &ShellHost, state: &DesktopState) {
         set_preferences(host, |p| *p = preferences);
     }
     host.set_global("Compositor", "language", string(&state.language));
-    if SHORTCUTS.with(|s| *s.borrow() != state.shortcuts) {
-        let shortcuts = state.shortcuts.iter().map(|shortcut| {
+    if BINDINGS.with(|b| *b.borrow() != state.bindings) {
+        let bindings = state.bindings.iter().map(|binding| {
+            let (name, argument) =
+                binding.action.split_once(' ').unwrap_or((binding.action.as_str(), ""));
             struct_value([
-                ("action", string(&shortcut.action)),
-                ("keys", list_value(shortcut.keys.iter().map(string))),
+                ("mode", string(&binding.mode)),
+                ("keys", list_value(binding.keys.iter().map(string))),
+                ("combo", string(binding.keys.join("+"))),
+                ("action", string(&binding.action)),
+                ("name", string(name)),
+                ("argument", string(argument.trim())),
             ])
         });
-        host.set_global("Compositor", "shortcuts", list_value(shortcuts));
-        SHORTCUTS.with(|s| *s.borrow_mut() = state.shortcuts.clone());
+        host.set_global("Compositor", "bindings", list_value(bindings));
+        BINDINGS.with(|b| *b.borrow_mut() = state.bindings.clone());
     }
 }
 
@@ -344,12 +350,12 @@ fn window_id(args: &[Value]) -> Option<u64> {
     string_arg(args, 0)?.parse().ok()
 }
 
-/// The action bound to `keys` ("Meta+Shift+S"), compared without regard to case.
-fn shortcut_owner(shortcuts: &[Shortcut], keys: &str) -> Option<String> {
-    shortcuts
+/// The action bound to `keys` ("Meta+Shift+S") in `mode`, compared without regard to case.
+fn binding_for(bindings: &[KeyBinding], mode: &str, keys: &str) -> Option<String> {
+    bindings
         .iter()
-        .find(|s| !s.keys.is_empty() && s.keys.join("+").eq_ignore_ascii_case(keys.trim()))
-        .map(|s| s.action.clone())
+        .find(|b| b.mode == mode && b.keys.join("+").eq_ignore_ascii_case(keys.trim()))
+        .map(|b| b.action.clone())
 }
 
 pub fn install(host: &Rc<ShellHost>, compositor: Compositor) {
@@ -357,14 +363,30 @@ pub fn install(host: &Rc<ShellHost>, compositor: Compositor) {
     host.set_global("Compositor", "has-commands", Value::Bool(compositor == Compositor::LunaDash));
     host.on_callback(
         "Compositor",
-        "shortcut-owner",
+        "binding-for",
         Rc::new(|args| {
-            let wanted = string_arg(args, 0).unwrap_or_default();
+            let mode = string_arg(args, 0).unwrap_or_default();
+            let keys = string_arg(args, 1).unwrap_or_default();
             string(
-                SHORTCUTS.with(|shortcuts| {
-                    shortcut_owner(&shortcuts.borrow(), &wanted).unwrap_or_default()
+                BINDINGS.with(|bindings| {
+                    binding_for(&bindings.borrow(), &mode, &keys).unwrap_or_default()
                 }),
             )
+        }),
+    );
+    host.on_callback(
+        "Compositor",
+        "keys-for",
+        Rc::new(|args| {
+            let mode = string_arg(args, 0).unwrap_or_default();
+            let action = string_arg(args, 1).unwrap_or_default();
+            BINDINGS.with(|bindings| {
+                let bindings = bindings.borrow();
+                // A combination with modifiers before a lone key (Meta+Shift+F before F12).
+                let of_action = || bindings.iter().filter(|b| b.mode == mode && b.action == action);
+                let keys = of_action().find(|b| b.keys.len() > 1).or_else(|| of_action().next());
+                list_value(keys.into_iter().flat_map(|b| b.keys.iter().map(string)))
+            })
         }),
     );
     install_preference_readers(host);
@@ -390,22 +412,53 @@ pub fn install(host: &Rc<ShellHost>, compositor: Compositor) {
     let commands = backend.clone();
     let spawned = std::thread::Builder::new().name("slintlu-commands".into()).spawn(move || {
         for (method, value) in queue {
-            if let Err(e) = commands.command(&method, &value) {
-                log::warn!("compositor command {method}: {e}");
-            }
+            // The shell sees why the last command failed ("" once one succeeds).
+            let error = match commands.command(&method, &value) {
+                Ok(_) => String::new(),
+                Err(e) => {
+                    log::warn!("compositor command {method}: {e}");
+                    e.to_string().trim_start_matches("LunaDash: ").to_owned()
+                }
+            };
+            host::post(move |host| host.set_global("Compositor", "command-error", string(error)));
         }
     });
     if let Err(e) = spawned {
         log::error!("cannot start the compositor command thread: {e}");
     }
+    let commands = send.clone();
     host.on_callback(
         "Compositor",
         "command",
         Rc::new(move |args| {
             if let Some(method) = string_arg(args, 0) {
                 let value = string_arg(args, 1).unwrap_or_default();
-                let _ = send.send((method, value));
+                let _ = commands.send((method, value));
             }
+            Value::Void
+        }),
+    );
+    // Bindings as JSON written here: an action may hold quotes ("spawn kitty --class \"a b\"").
+    let commands = send.clone();
+    host.on_callback(
+        "Compositor",
+        "bind",
+        Rc::new(move |args| {
+            let text = |index| string_arg(args, index).unwrap_or_default();
+            let value = serde_json::json!({
+                "mode": text(0), "keys": text(1), "action": text(2), "replace": text(3)
+            });
+            let _ = commands.send(("bind".into(), value.to_string()));
+            Value::Void
+        }),
+    );
+    host.on_callback(
+        "Compositor",
+        "unbind",
+        Rc::new(move |args| {
+            let text = |index| string_arg(args, index).unwrap_or_default();
+            let value = serde_json::json!({ "mode": text(0), "keys": text(1) });
+            let _ = send.send(("unbind".into(), value.to_string()));
             Value::Void
         }),
     );
@@ -438,20 +491,24 @@ pub fn install(host: &Rc<ShellHost>, compositor: Compositor) {
 }
 
 #[cfg(test)]
-mod shortcut_tests {
+mod binding_tests {
     use super::*;
 
     #[test]
-    fn finds_the_owner_of_a_combination() {
-        let shortcuts = vec![
-            Shortcut { action: "closeWindow".into(), keys: vec!["Meta".into(), "Q".into()] },
-            Shortcut {
-                action: "screenshot".into(),
-                keys: vec!["Meta".into(), "Shift".into(), "S".into()],
-            },
+    fn finds_the_action_of_keys_in_a_mode() {
+        let binding = |mode: &str, keys: &[&str], action: &str| KeyBinding {
+            mode: mode.into(),
+            keys: keys.iter().map(|k| k.to_string()).collect(),
+            action: action.into(),
+        };
+        let bindings = vec![
+            binding("normal", &["Meta", "Q"], "close-window"),
+            binding("normal", &["Meta", "Shift", "S"], "screenshot"),
+            binding("overview", &["Escape"], "close-overview"),
         ];
-        assert_eq!(shortcut_owner(&shortcuts, "meta+q").as_deref(), Some("closeWindow"));
-        assert_eq!(shortcut_owner(&shortcuts, "Meta+Shift+S").as_deref(), Some("screenshot"));
-        assert_eq!(shortcut_owner(&shortcuts, "Meta+W"), None);
+        assert_eq!(binding_for(&bindings, "normal", "meta+q").as_deref(), Some("close-window"));
+        assert_eq!(binding_for(&bindings, "normal", "Meta+Shift+S").as_deref(), Some("screenshot"));
+        assert_eq!(binding_for(&bindings, "normal", "Escape"), None, "another mode");
+        assert_eq!(binding_for(&bindings, "overview", "Escape").as_deref(), Some("close-overview"));
     }
 }

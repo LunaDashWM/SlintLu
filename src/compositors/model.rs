@@ -27,12 +27,13 @@ pub struct Window {
     pub urgent: bool,
 }
 
-/// A keyboard shortcut the compositor binds: its action and its keys, e.g. `closeWindow` and
-/// `["Meta", "Q"]`.
+/// A key the compositor binds: its mode ("normal", or "overview" while the overview is open),
+/// its keys (`["Meta", "Q"]`) and the action with its arguments (`focus-workspace 3`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Shortcut {
-    pub action: String,
+pub struct KeyBinding {
+    pub mode: String,
     pub keys: Vec<String>,
+    pub action: String,
 }
 
 /// Everything a shell typically shows about the desktop.
@@ -58,9 +59,9 @@ pub struct DesktopState {
     pub language: String,
     /// The compositor is ending the session and asks its shell to exit (LunaDash).
     pub session_ending: bool,
-    /// The compositor's keyboard shortcuts, sorted by action, for compositors that report them
-    /// (LunaDash). Disabled shortcuts are left out.
-    pub shortcuts: Vec<Shortcut>,
+    /// The compositor's key bindings, normal mode first, then by action, for compositors that
+    /// report them (LunaDash).
+    pub bindings: Vec<KeyBinding>,
 }
 
 impl DesktopState {
