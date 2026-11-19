@@ -87,7 +87,10 @@ fn home() -> std::path::PathBuf {
 /// Decodes a picture off the UI thread. Pixels, not a path: Slint caches images by path and
 /// would keep showing the old ~/.face.
 fn decode(path: &std::path::Path) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
-    let picture = image::open(path).ok()?.into_rgba8();
+    let picture = accounts::open_picture(path)
+        .map_err(|e| log::warn!("account picture: {e}"))
+        .ok()?
+        .into_rgba8();
     Some(SharedPixelBuffer::clone_from_slice(picture.as_raw(), picture.width(), picture.height()))
 }
 

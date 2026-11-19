@@ -67,10 +67,20 @@ pub fn load(user: &str, home: &Path) -> Account {
     account
 }
 
+/// Decodes a picture by its contents: account pictures (`~/.face`, AccountsService's icons)
+/// have no extension to tell the format.
+pub fn open_picture(path: &Path) -> Result<image::DynamicImage, String> {
+    image::ImageReader::open(path)
+        .and_then(|reader| reader.with_guessed_format())
+        .map_err(|e| format!("{}: {e}", path.display()))?
+        .decode()
+        .map_err(|e| format!("{}: {e}", path.display()))
+}
+
 /// Makes `image` the account picture: a 256 px square PNG at `~/.face` (read by display
 /// managers), which AccountsService copies for the login screen.
 pub fn set_icon(user: &str, home: &Path, image: &Path) -> Result<PathBuf, String> {
-    let picture = image::open(image).map_err(|e| format!("{}: {e}", image.display()))?;
+    let picture = open_picture(image)?;
     let side = picture.width().min(picture.height());
     let square =
         picture.crop_imm((picture.width() - side) / 2, (picture.height() - side) / 2, side, side);
@@ -93,4 +103,21 @@ pub fn set_icon(user: &str, home: &Path, image: &Path) -> Result<PathBuf, String
         log::warn!("accounts: the login screen keeps its picture: {e}");
     }
     Ok(face)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pictures_without_an_extension_decode() {
+        let dir = tempfile::tempdir().unwrap();
+        let face = dir.path().join(".face");
+        image::RgbaImage::from_pixel(4, 3, image::Rgba([10, 20, 30, 255]))
+            .save_with_format(&face, image::ImageFormat::Png)
+            .unwrap();
+        let picture = open_picture(&face).unwrap();
+        assert_eq!((picture.width(), picture.height()), (4, 3));
+        assert!(open_picture(&dir.path().join("missing")).is_err());
+    }
 }
