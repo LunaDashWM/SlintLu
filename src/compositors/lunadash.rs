@@ -1,6 +1,6 @@
 //! LunaDash: JSON requests on its control socket (`$LUNADASH_CONTROL`, or
-//! `$XDG_RUNTIME_DIR/lunadash-0-control`). LunaDash has no event stream, so the state is
-//! polled like its own shell does.
+//! `$XDG_RUNTIME_DIR/lunadash-0-control`), as sway's IPC: `get-*` requests for each topic
+//! and a `subscribe` stream of events about them.
 
 use std::io::{self, BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
@@ -16,9 +16,9 @@ use super::model::{
 };
 use crate::util::uri::path_from_path_or_uri;
 
-/// The number of workspaces of LunaDash versions that do not report it (they had ten).
-const DEFAULT_WORKSPACES: i64 = 10;
-const POLL: Duration = Duration::from_millis(700);
+/// The events the shell follows.
+const EVENTS: [&str; 6] =
+    ["workspace", "window", "appearance", "wallpaper", "keybindings", "shutdown"];
 // A reply may wait for the compositor to finish a long frame: giving up early
 // only hides the outcome, since the request is already sent.
 const TIMEOUT: Duration = Duration::from_millis(5000);
@@ -64,13 +64,67 @@ impl LunaDash {
         }
         Ok(response)
     }
+
+    /// The topics the shell follows, read with their `get-*` requests into one object.
+    fn snapshot(&self) -> io::Result<Value> {
+        let mut status = self.request("get-workspaces", "")?;
+        for topic in ["get-clients", "get-wallpaper", "get-keybindings"] {
+            merge(&mut status, self.request(topic, "")?);
+        }
+        status["appearance"] = self.request("get-appearance", "")?["appearance"].take();
+        Ok(status)
+    }
 }
 
-/// Builds the shell's view from a `status` response.
+fn merge(into: &mut Value, from: Value) {
+    if let (Some(into), Value::Object(from)) = (into.as_object_mut(), from) {
+        into.extend(from);
+    }
+}
+
+/// Applies one `subscribe` event to the topics `snapshot` read.
+fn apply_event(status: &mut Value, event: &Value) {
+    match event["event"].as_str() {
+        Some("workspace") => {
+            status["workspace"] = event["current"].clone();
+            status["workspaceCount"] = event["workspaceCount"].clone();
+        }
+        Some("window") => {
+            let container = &event["container"];
+            if !status["clients"].is_array() {
+                status["clients"] = json!([]);
+            }
+            let Some(clients) = status["clients"].as_array_mut() else { return };
+            let found = clients.iter().position(|c| c["id"] == container["id"]);
+            if event["change"] == "close" {
+                if let Some(index) = found {
+                    clients.remove(index);
+                }
+                return;
+            }
+            if container["focused"] == true {
+                for client in clients.iter_mut() {
+                    client["focused"] = json!(false);
+                }
+            }
+            match found {
+                Some(index) => clients[index] = container.clone(),
+                None => clients.push(container.clone()),
+            }
+        }
+        Some("appearance") => status["appearance"] = event["appearance"].clone(),
+        Some("wallpaper") => merge(status, event["wallpaper"].clone()),
+        Some("keybindings") => status["keybindings"] = event["keybindings"].clone(),
+        Some("shutdown") => status["shutdown"] = json!(true),
+        _ => {}
+    }
+}
+
+/// Builds the shell's view from the topics `snapshot` read.
 fn build_state(status: &Value) -> DesktopState {
     let active = status["workspace"].as_i64().unwrap_or(0);
     // LunaDash adds and removes workspaces as windows come and go.
-    let count = status["workspaceCount"].as_i64().unwrap_or(DEFAULT_WORKSPACES).max(active + 1);
+    let count = status["workspaceCount"].as_i64().unwrap_or(0).max(active + 1);
     let output = status["outputs"]
         .as_array()
         .and_then(|o| o.first())
@@ -258,16 +312,24 @@ fn read_switcher(path: &std::path::Path) -> SwitcherState {
         .unwrap_or_default()
 }
 
-impl LunaDash {
-    /// Follows LunaDash's `subscribe` stream: its shell state now and on every change.
-    /// `Unsupported` when this LunaDash predates the stream.
-    fn subscribe(&self, on_state: &mut dyn FnMut(&DesktopState)) -> io::Result<()> {
+impl Backend for LunaDash {
+    /// Subscribes first, then reads the topics: what changes meanwhile arrives as events.
+    fn watch(&self, on_state: &mut dyn FnMut(&DesktopState)) -> io::Result<()> {
         let stream = UnixStream::connect(&self.socket)?;
         stream.set_write_timeout(Some(TIMEOUT))?;
-        writeln!(&stream, "{}", json!({ "method": "subscribe", "value": "shell" }))?;
+        let events = json!(EVENTS).to_string();
+        writeln!(&stream, "{}", json!({ "method": "subscribe", "value": events }))?;
         let mut reader = BufReader::new(stream);
-        let mut last: Option<DesktopState> = None;
         let mut line = String::new();
+        reader.read_line(&mut line)?;
+        let reply: Value = serde_json::from_str(&line).map_err(io::Error::other)?;
+        if reply["success"] != true {
+            let error = reply["error"].as_str().unwrap_or("cannot subscribe");
+            return Err(io::Error::other(format!("LunaDash: {error}")));
+        }
+        let mut status = self.snapshot()?;
+        let mut last = build_state(&status);
+        on_state(&last);
         loop {
             line.clear();
             if reader.read_line(&mut line)? == 0 {
@@ -276,37 +338,13 @@ impl LunaDash {
                     "LunaDash closed the stream",
                 ));
             }
-            let status: Value = serde_json::from_str(&line).map_err(io::Error::other)?;
-            if last.is_none() && status.get("error").is_some() {
-                return Err(io::Error::new(io::ErrorKind::Unsupported, "no subscribe stream"));
-            }
+            let event: Value = serde_json::from_str(&line).map_err(io::Error::other)?;
+            apply_event(&mut status, &event);
             let state = build_state(&status);
-            if last.as_ref() != Some(&state) {
+            if state != last {
                 on_state(&state);
-                last = Some(state);
+                last = state;
             }
-        }
-    }
-
-    /// Asks for the full status again and again (LunaDash without the stream).
-    fn poll(&self, on_state: &mut dyn FnMut(&DesktopState)) -> io::Result<()> {
-        let mut last: Option<DesktopState> = None;
-        loop {
-            let state = build_state(&self.request("status", "")?);
-            if last.as_ref() != Some(&state) {
-                on_state(&state);
-                last = Some(state);
-            }
-            std::thread::sleep(POLL);
-        }
-    }
-}
-
-impl Backend for LunaDash {
-    fn watch(&self, on_state: &mut dyn FnMut(&DesktopState)) -> io::Result<()> {
-        match self.subscribe(on_state) {
-            Err(e) if e.kind() == io::ErrorKind::Unsupported => self.poll(on_state),
-            result => result,
         }
     }
 
@@ -378,9 +416,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn builds_state_from_status() {
+    fn builds_state_from_topics() {
         let status = json!({
             "workspace": 2,
+            "workspaceCount": 10,
             "clients": [
                 {"id": 7, "title": "Zed", "appId": "dev.zed.Zed", "workspace": 2, "focused": true, "mapped": true},
                 {"id": 8, "title": "Term", "appId": "foot", "workspace": 0, "focused": false, "mapped": true},
@@ -427,7 +466,7 @@ mod tests {
             reader.read_line(&mut line).unwrap();
             let request: Value = serde_json::from_str(&line).unwrap();
             assert_eq!(request, json!({"method": "workspace", "value": "3"}));
-            writeln!(reader.get_mut(), "{}", json!({"workspace": 3, "clients": []})).unwrap();
+            writeln!(reader.get_mut(), "{}", json!({"success": true})).unwrap();
         });
         let backend = LunaDash { socket: path };
         backend.perform(&Action::FocusWorkspace(3)).unwrap();
@@ -438,8 +477,7 @@ mod tests {
         let state = build_state(&json!({"workspace": 1, "workspaceCount": 3}));
         assert_eq!(state.workspaces.len(), 3);
         assert!(state.workspaces[1].active);
-        // Older LunaDash versions had ten fixed workspaces.
-        assert_eq!(build_state(&json!({"workspace": 0})).workspaces.len(), 10);
+        assert_eq!(build_state(&json!({"workspace": 2})).workspaces.len(), 3);
         let video = build_state(&json!({
             "wallpaperPoster": "file:///tmp/poster.png",
             "wallpaperLive": true,
@@ -472,6 +510,38 @@ mod tests {
         let preferences: Value = serde_json::from_str(&state.preferences).unwrap();
         assert_eq!(preferences["tilingMode"], "scroll");
         assert_eq!(build_state(&json!({})).preferences, "");
+    }
+
+    #[test]
+    fn follows_events() {
+        let mut status = json!({
+            "workspace": 0, "workspaceCount": 2,
+            "clients": [{"id": 1, "title": "a", "appId": "foot", "workspace": 0, "focused": true}],
+        });
+        let window = |change: &str, container: Value| json!({"event": "window", "change": change, "container": container});
+        apply_event(&mut status, &window("new", json!({"id": 2, "title": "b", "focused": true})));
+        let state = build_state(&status);
+        assert_eq!(state.windows.len(), 2);
+        assert_eq!(state.focused_window().unwrap().id, 2, "a focused window unfocuses the rest");
+        apply_event(&mut status, &window("title", json!({"id": 1, "title": "renamed"})));
+        assert_eq!(build_state(&status).windows[0].title, "renamed", "updates keep their place");
+        apply_event(&mut status, &window("close", json!({"id": 2})));
+        assert_eq!(build_state(&status).windows.len(), 1);
+        apply_event(
+            &mut status,
+            &json!({"event": "workspace", "change": "focus", "current": 2, "old": 0, "workspaceCount": 4}),
+        );
+        let state = build_state(&status);
+        assert_eq!(state.workspaces.len(), 4);
+        assert!(state.workspaces[2].active);
+        apply_event(
+            &mut status,
+            &json!({"event": "wallpaper", "change": "update",
+                    "wallpaper": {"wallpaperImage": "file:///w/new.png", "wallpaperLive": false}}),
+        );
+        assert_eq!(build_state(&status).wallpaper, "/w/new.png");
+        apply_event(&mut status, &json!({"event": "shutdown", "change": "exit"}));
+        assert!(build_state(&status).session_ending);
     }
 
     #[test]
