@@ -100,6 +100,7 @@ impl State {
                 title: t.title.clone(),
                 app_id: t.app_id.clone(),
                 workspace: None,
+                position: None,
                 focused: t.activated,
                 urgent: false,
             })

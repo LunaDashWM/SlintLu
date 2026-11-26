@@ -39,6 +39,49 @@ fn merge(protocols: &DesktopState, adapter: &DesktopState) -> DesktopState {
         }
     }
     merged.windows = protocols.windows.clone();
+    // Keep protocol window IDs for actions, but borrow geometry and workspace membership from
+    // the compositor adapter. The two sources use different window IDs, so match by app and title.
+    let mut matched = vec![false; adapter.windows.len()];
+    for window in &mut merged.windows {
+        let exact = adapter.windows.iter().enumerate().find_map(|(index, candidate)| {
+            (!matched[index]
+                && candidate.position.is_some()
+                && !window.app_id.is_empty()
+                && candidate.app_id == window.app_id
+                && candidate.title == window.title)
+                .then_some(index)
+        });
+        let index = exact.or_else(|| {
+            let mut candidates = adapter
+                .windows
+                .iter()
+                .enumerate()
+                .filter(|(index, candidate)| {
+                    !matched[*index]
+                        && candidate.position.is_some()
+                        && !window.app_id.is_empty()
+                        && candidate.app_id == window.app_id
+                })
+                .map(|(index, _)| index);
+            let first = candidates.next()?;
+            candidates.next().is_none().then_some(first)
+        });
+        if let Some(index) = index {
+            matched[index] = true;
+            let candidate = &adapter.windows[index];
+            window.position = candidate.position;
+            if window.workspace.is_none() {
+                window.workspace = candidate.workspace.and_then(|workspace_id| {
+                    adapter
+                        .workspaces
+                        .iter()
+                        .position(|workspace| workspace.id == workspace_id)
+                        .and_then(|workspace_index| merged.workspaces.get(workspace_index))
+                        .map(|workspace| workspace.id)
+                });
+            }
+        }
+    }
     merged
 }
 
