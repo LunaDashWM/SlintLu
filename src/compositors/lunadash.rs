@@ -158,6 +158,7 @@ fn build_state(status: &Value) -> DesktopState {
                     position: c["x"].as_i64().zip(c["y"].as_i64())
                         .map(|(x, y)| (x as i32, y as i32)),
                     focused: c["focused"].as_bool().unwrap_or(false),
+                    icon_file: c["iconFile"].as_str().filter(|f| !f.is_empty()).map(String::from),
                     urgent: false,
                 })
             })
@@ -284,6 +285,7 @@ fn build_switcher(snapshot: &Value) -> SwitcherState {
                     item["workspace"].as_u64().unwrap_or(0)
                 },
                 focused: item["focused"].as_bool().unwrap_or(false),
+                icon_file: item["iconFile"].as_str().filter(|f| !f.is_empty()).map(String::from),
                 minimized: item["minimized"].as_bool().unwrap_or(false),
                 apps: windows.into_iter().flatten().map(|w| text(w, "appId")).collect(),
                 preview: item["thumbnail"]

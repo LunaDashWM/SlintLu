@@ -70,6 +70,9 @@ fn merge(protocols: &DesktopState, adapter: &DesktopState) -> DesktopState {
             matched[index] = true;
             let candidate = &adapter.windows[index];
             window.position = candidate.position;
+            if window.icon_file.is_none() {
+                window.icon_file.clone_from(&candidate.icon_file);
+            }
             if window.workspace.is_none() {
                 window.workspace = candidate.workspace.and_then(|workspace_id| {
                     adapter

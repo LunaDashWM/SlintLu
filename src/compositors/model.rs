@@ -25,6 +25,8 @@ pub struct Window {
     pub workspace: Option<u64>,
     /// Position in the compositor's global logical coordinate space, when available.
     pub position: Option<(i32, i32)>,
+    /// The icon the window sets itself, as a file, for programs no desktop file names.
+    pub icon_file: Option<String>,
     pub focused: bool,
     pub urgent: bool,
 }
@@ -125,6 +127,8 @@ pub struct SwitcherItem {
     pub minimized: bool,
     /// Workspace switcher: the application ids of the windows on the workspace.
     pub apps: Vec<String>,
+    /// The icon the window sets itself, as a file (see `Window::icon_file`).
+    pub icon_file: Option<String>,
     /// A picture of the window (a file), when the compositor took one.
     pub preview: String,
 }

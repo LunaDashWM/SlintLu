@@ -102,6 +102,7 @@ impl State {
                 workspace: None,
                 position: None,
                 focused: t.activated,
+                icon_file: None,
                 urgent: false,
             })
             .collect();

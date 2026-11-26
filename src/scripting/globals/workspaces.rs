@@ -2,6 +2,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -26,7 +27,21 @@ fn window(w: Option<&Window>) -> Value {
         ("workspace", Value::Number(w.workspace.unwrap_or(0) as f64)),
         ("focused", Value::Bool(w.focused)),
         ("urgent", Value::Bool(w.urgent)),
+        ("icon", Value::Image(window_icon(&w.app_id, w.icon_file.as_deref()))),
     ])
+}
+
+/// A window's icon: its application's, the icon theme's for its app id, else the one it sets
+/// itself (an X11 game's, say).
+fn window_icon(app_id: &str, icon_file: Option<&str>) -> slint::Image {
+    if let Some(icon) = super::apps::icon_for(app_id).filter(|i| i.size().width > 0) {
+        return icon;
+    }
+    let themed = super::apps::theme_icon(app_id);
+    match icon_file {
+        Some(path) if themed.size().width == 0 => super::icons::image_at(Path::new(path)),
+        _ => themed,
+    }
 }
 
 thread_local! {
@@ -211,13 +226,7 @@ fn action(
 }
 
 fn switcher_entry(item: &SwitcherItem) -> Value {
-    let icon = |app_id: &str| {
-        Value::Image(
-            super::apps::icon_for(app_id)
-                .filter(|i| i.size().width > 0)
-                .unwrap_or_else(|| super::apps::theme_icon(app_id)),
-        )
-    };
+    let icon = |app_id: &str| Value::Image(window_icon(app_id, item.icon_file.as_deref()));
     struct_value([
         ("id", Value::Number(item.id as f64)),
         ("title", string(&item.title)),
@@ -226,7 +235,7 @@ fn switcher_entry(item: &SwitcherItem) -> Value {
         ("workspace", Value::Number(item.workspace as f64)),
         ("focused", Value::Bool(item.focused)),
         ("minimized", Value::Bool(item.minimized)),
-        ("icons", list_value(item.apps.iter().map(|a| icon(a)))),
+        ("icons", list_value(item.apps.iter().map(|a| Value::Image(window_icon(a, None))))),
         ("preview", Value::Image(preview(&item.preview))),
     ])
 }

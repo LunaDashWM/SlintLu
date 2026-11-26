@@ -94,6 +94,7 @@ fn window(v: &Value) -> Option<Window> {
             Some((p.first()?.as_i64()? as i32, p.get(1)?.as_i64()? as i32))
         }),
         focused: v["is_focused"].as_bool().unwrap_or(false),
+        icon_file: None,
         urgent: v["is_urgent"].as_bool().unwrap_or(false),
     })
 }

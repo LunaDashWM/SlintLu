@@ -83,6 +83,7 @@ fn collect_windows(node: &Value, workspace: Option<u64>, out: &mut Vec<Window>) 
             position: node["rect"]["x"].as_i64().zip(node["rect"]["y"].as_i64())
                 .map(|(x, y)| (x as i32, y as i32)),
             focused: node["focused"].as_bool().unwrap_or(false),
+            icon_file: None,
             urgent: node["urgent"].as_bool().unwrap_or(false),
         });
     }

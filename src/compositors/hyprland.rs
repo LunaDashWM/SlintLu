@@ -133,6 +133,7 @@ fn build_state(
                         Some((p.first()?.as_i64()? as i32, p.get(1)?.as_i64()? as i32))
                     }),
                     focused: Some(id) == active_address,
+                    icon_file: None,
                     urgent: false,
                 })
             })
