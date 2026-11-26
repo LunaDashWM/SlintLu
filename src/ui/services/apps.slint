@@ -51,7 +51,7 @@ export global Apps {
     // X11 class), falling back to the icon theme.
     pure callback icon-for(app-id: string) -> image;
     // Groups windows by application: the `pinned` desktop file ids first (in that order, with
-    // or without windows), then the other applications with windows in order of appearance.
+    // or without windows), then the other applications by their first window's screen position.
     pure callback group-windows(pinned: [string], windows: [WindowInfo]) -> [AppWindows];
     // Runs one of the application's extra actions (e.g. "new-private-window").
     callback launch-action(id: string, action: string);

@@ -23,6 +23,8 @@ pub struct Window {
     pub title: String,
     pub app_id: String,
     pub workspace: Option<u64>,
+    /// Position in the compositor's global logical coordinate space, when available.
+    pub position: Option<(i32, i32)>,
     pub focused: bool,
     pub urgent: bool,
 }

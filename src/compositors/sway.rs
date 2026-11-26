@@ -80,6 +80,8 @@ fn collect_windows(node: &Value, workspace: Option<u64>, out: &mut Vec<Window>) 
             title: node["name"].as_str().unwrap_or_default().to_owned(),
             app_id: app_id.to_owned(),
             workspace,
+            position: node["rect"]["x"].as_i64().zip(node["rect"]["y"].as_i64())
+                .map(|(x, y)| (x as i32, y as i32)),
             focused: node["focused"].as_bool().unwrap_or(false),
             urgent: node["urgent"].as_bool().unwrap_or(false),
         });

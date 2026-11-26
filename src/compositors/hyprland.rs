@@ -129,6 +129,9 @@ fn build_state(
                     title: c["title"].as_str().unwrap_or_default().to_owned(),
                     app_id: c["class"].as_str().unwrap_or_default().to_owned(),
                     workspace: c["workspace"]["id"].as_i64().filter(|i| *i > 0).map(|i| i as u64),
+                    position: c["at"].as_array().and_then(|p| {
+                        Some((p.first()?.as_i64()? as i32, p.get(1)?.as_i64()? as i32))
+                    }),
                     focused: Some(id) == active_address,
                     urgent: false,
                 })

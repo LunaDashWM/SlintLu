@@ -26,6 +26,7 @@ export struct WindowInfo {
 export global Workspaces {
     in property <bool> available;
     in property <[WorkspaceInfo]> all;
+    // Ordered by workspace, then screen position; unreported positions retain compositor order.
     in property <[WindowInfo]> windows;
     in property <WindowInfo> focused-window;
     in property <string> keyboard-layout;

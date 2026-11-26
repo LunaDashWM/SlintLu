@@ -101,6 +101,8 @@ fn build_state(status: &Value) -> DesktopState {
                     title: c["title"].as_str().unwrap_or_default().to_owned(),
                     app_id: c["appId"].as_str().unwrap_or_default().to_owned(),
                     workspace: c["workspace"].as_u64(),
+                    position: c["x"].as_i64().zip(c["y"].as_i64())
+                        .map(|(x, y)| (x as i32, y as i32)),
                     focused: c["focused"].as_bool().unwrap_or(false),
                     urgent: false,
                 })

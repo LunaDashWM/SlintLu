@@ -90,6 +90,9 @@ fn window(v: &Value) -> Option<Window> {
         title: v["title"].as_str().unwrap_or_default().to_owned(),
         app_id: v["app_id"].as_str().unwrap_or_default().to_owned(),
         workspace: v["workspace_id"].as_u64(),
+        position: v["layout"]["pos_in_scrolling_layout"].as_array().and_then(|p| {
+            Some((p.first()?.as_i64()? as i32, p.get(1)?.as_i64()? as i32))
+        }),
         focused: v["is_focused"].as_bool().unwrap_or(false),
         urgent: v["is_urgent"].as_bool().unwrap_or(false),
     })

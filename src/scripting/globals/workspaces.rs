@@ -1,6 +1,7 @@
 //! The `Workspaces` global, backed by the compositor's IPC.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -110,10 +111,27 @@ fn publish(host: &ShellHost, state: &DesktopState) {
         ])
     });
     host.set_global("Workspaces", "all", list_value(workspaces));
+    // Keep taskbars and app grouping in workspace order, then left-to-right and top-to-bottom.
+    // Unknown positions stay after positioned windows while retaining their compositor order.
+    let workspace_order: HashMap<_, _> = state.workspaces.iter().enumerate()
+        .map(|(order, workspace)| (workspace.id, order)).collect();
+    let mut windows: Vec<_> = state.windows.iter().enumerate().collect();
+    windows.sort_by(|(left_order, left), (right_order, right)| {
+        let left_workspace = left.workspace.and_then(|id| workspace_order.get(&id)).copied();
+        let right_workspace = right.workspace.and_then(|id| workspace_order.get(&id)).copied();
+        left_workspace.cmp(&right_workspace).then_with(|| match (left.position, right.position) {
+            (Some((left_x, left_y)), Some((right_x, right_y))) => left_x.cmp(&right_x)
+                .then_with(|| left_y.cmp(&right_y))
+                .then_with(|| left_order.cmp(right_order)),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => left_order.cmp(right_order),
+        })
+    });
     host.set_global(
         "Workspaces",
         "windows",
-        list_value(state.windows.iter().map(|w| window(Some(w)))),
+        list_value(windows.into_iter().map(|(_, w)| window(Some(w)))),
     );
     host.set_global("Workspaces", "focused-window", window(state.focused_window()));
     host.set_global("Workspaces", "keyboard-layout", string(&state.keyboard_layout));
