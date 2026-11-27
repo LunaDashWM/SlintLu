@@ -26,4 +26,10 @@ export global Store {
     callback list-move(key: string, from: int, to: int);
     // Removes the value at one position.
     callback list-remove-at(key: string, index: int);
+    // Profiles: named copies of the values whose keys start with one of `prefixes`, kept apart
+    // from the settings. Loading one replaces exactly those values.
+    pure callback profiles(revision: int) -> [string];
+    callback save-profile(name: string, prefixes: [string]);
+    callback load-profile(name: string, prefixes: [string]);
+    callback delete-profile(name: string);
 }

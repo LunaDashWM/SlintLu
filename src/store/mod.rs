@@ -41,6 +41,32 @@ impl Store {
         }
     }
 
+    /// Keys in sorted order.
+    pub fn keys(&self) -> impl Iterator<Item = &String> {
+        self.values.keys()
+    }
+
+    /// Every value whose key starts with one of `prefixes`.
+    pub fn matching(&self, prefixes: &[String]) -> BTreeMap<String, Value> {
+        self.values
+            .iter()
+            .filter(|(key, _)| matches(key, prefixes))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect()
+    }
+
+    /// Replaces every value whose key starts with one of `prefixes` by those of `values` that
+    /// do, and writes the file once.
+    pub fn replace_matching(&mut self, prefixes: &[String], values: BTreeMap<String, Value>) {
+        let mut next: BTreeMap<String, Value> = std::mem::take(&mut self.values)
+            .into_iter()
+            .filter(|(k, _)| !matches(k, prefixes))
+            .collect();
+        next.extend(values.into_iter().filter(|(k, _)| matches(k, prefixes)));
+        self.values = next;
+        self.save();
+    }
+
     fn save(&self) {
         let Some(path) = &self.path else { return };
         let result = (|| -> std::io::Result<()> {
@@ -60,10 +86,31 @@ impl Store {
     }
 }
 
+fn matches(key: &str, prefixes: &[String]) -> bool {
+    prefixes.iter().any(|p| key.starts_with(p.as_str()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn replaces_keys_by_prefix() {
+        let mut store = Store::default();
+        store.set("widget-x:a", json!(1));
+        store.set("widgets", json!(["a"]));
+        store.set("dock", json!(true));
+        let prefixes = vec!["widget".to_owned()];
+        assert_eq!(store.matching(&prefixes).len(), 2);
+        let next = BTreeMap::from([
+            ("widget-x:b".to_owned(), json!(2)),
+            ("dock".to_owned(), json!(false)),
+        ]);
+        store.replace_matching(&prefixes, next);
+        assert_eq!(store.keys().collect::<Vec<_>>(), ["dock", "widget-x:b"]);
+        assert_eq!(store.get("dock"), Some(&json!(true)));
+    }
 
     #[test]
     fn values_persist() {

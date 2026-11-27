@@ -10,7 +10,7 @@ use slintlu::store::Store;
 use slintlu::util::xdg;
 
 use crate::scripting::ShellHost;
-use crate::scripting::bridge::{bool_arg, number_arg, string, string_arg};
+use crate::scripting::bridge::{bool_arg, list_value, number_arg, string, string_arg};
 
 /// One key–value global: its Slint name, the values and a change counter.
 struct KeyValues {
@@ -121,6 +121,23 @@ fn install_key_values(host: &Rc<ShellHost>, kv: &Rc<KeyValues>) {
     );
 }
 
+/// A `[string]` callback argument.
+fn strings(args: &[Value], index: usize) -> Option<Vec<String>> {
+    use slint::Model;
+    match args.get(index) {
+        Some(Value::Model(model)) => Some(
+            model
+                .iter()
+                .filter_map(|v| match v {
+                    Value::String(s) => Some(s.to_string()),
+                    _ => None,
+                })
+                .collect(),
+        ),
+        _ => None,
+    }
+}
+
 fn list(store: &Store, key: &str) -> Vec<String> {
     store
         .get(key)
@@ -182,26 +199,14 @@ fn list_editor(
 
 fn install_lists(host: &Rc<ShellHost>, kv: &Rc<KeyValues>) {
     getter(host, kv, "get-list", |store, args| {
-        crate::scripting::bridge::list_value(list(store, &key(args)).into_iter().map(string))
+        list_value(list(store, &key(args)).into_iter().map(string))
     });
     getter(host, kv, "list-contains", |store, args| {
         let value = string_arg(args, 1).unwrap_or_default();
         Value::Bool(list(store, &key(args)).contains(&value))
     });
-    setter(host, kv, "set-list", |a| match a.get(1) {
-        Some(Value::Model(model)) => {
-            use slint::Model;
-            Some(Json::Array(
-                model
-                    .iter()
-                    .filter_map(|v| match v {
-                        Value::String(s) => Some(Json::String(s.to_string())),
-                        _ => None,
-                    })
-                    .collect(),
-            ))
-        }
-        _ => None,
+    setter(host, kv, "set-list", |a| {
+        strings(a, 1).map(|s| Json::Array(s.into_iter().map(Json::String).collect()))
     });
     for (name, add) in [("list-add", true), ("list-remove", false)] {
         let weak = Rc::downgrade(host);
@@ -241,21 +246,97 @@ fn install_list_edits(host: &Rc<ShellHost>, kv: &Rc<KeyValues>) {
     list_editor(host, kv, "list-remove-at", |items, args| remove_at(items, number_arg(args, 1)));
 }
 
+/// Named copies of the Store's values (profiles), kept in a file of their own.
+fn install_profiles(host: &Rc<ShellHost>, kv: &Rc<KeyValues>, profiles: Store) {
+    let profiles = Rc::new(RefCell::new(profiles));
+    let p = profiles.clone();
+    host.on_callback(
+        kv.global,
+        "profiles",
+        Rc::new(move |_| list_value(p.borrow().keys().map(string))),
+    );
+    let action = |run: fn(&KeyValues, &RefCell<Store>, String, Vec<String>)| {
+        let weak = Rc::downgrade(host);
+        let (kv, profiles) = (kv.clone(), profiles.clone());
+        Rc::new(move |args: &[Value]| {
+            let name = key(args);
+            if let (false, Some(host)) = (name.is_empty(), weak.upgrade()) {
+                run(&kv, &profiles, name, strings(args, 1).unwrap_or_default());
+                kv.bump(&host);
+            }
+            Value::Void
+        })
+    };
+    host.on_callback(
+        kv.global,
+        "save-profile",
+        action(|kv, profiles, name, prefixes| {
+            let values = kv.store.borrow().matching(&prefixes);
+            profiles.borrow_mut().set(&name, Json::Object(values.into_iter().collect()));
+        }),
+    );
+    host.on_callback(
+        kv.global,
+        "load-profile",
+        action(|kv, profiles, name, prefixes| {
+            if let Some(Json::Object(values)) = profiles.borrow().get(&name) {
+                let values = values.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+                kv.store.borrow_mut().replace_matching(&prefixes, values);
+            }
+        }),
+    );
+    host.on_callback(
+        kv.global,
+        "delete-profile",
+        action(|_, profiles, name, _| profiles.borrow_mut().remove(&name)),
+    );
+}
+
+/// Copies values between the Store and Shared, e.g. to edit a draft in Shared and keep it
+/// only when the user confirms.
+fn install_copies(host: &Rc<ShellHost>, persistent: &Rc<KeyValues>, shared: &Rc<KeyValues>) {
+    for (name, from, to) in [
+        ("copy-from-store", persistent.clone(), shared.clone()),
+        ("copy-to-store", shared.clone(), persistent.clone()),
+    ] {
+        let weak = Rc::downgrade(host);
+        host.on_callback(
+            "Shared",
+            name,
+            Rc::new(move |args| {
+                if let (Some(prefixes), Some(host)) = (strings(args, 0), weak.upgrade()) {
+                    let values = from.store.borrow().matching(&prefixes);
+                    to.store.borrow_mut().replace_matching(&prefixes, values);
+                    to.bump(&host);
+                }
+                Value::Void
+            }),
+        );
+    }
+}
+
 pub fn install(host: &Rc<ShellHost>) {
     let mut hasher = DefaultHasher::new();
     host.config().hash(&mut hasher);
-    let path =
-        xdg::state_home().join("slintlu").join(format!("store-{:016x}.json", hasher.finish()));
+    let hash = hasher.finish();
+    let directory = xdg::state_home().join("slintlu");
+    let path = directory.join(format!("store-{hash:016x}.json"));
     log::debug!("store: {}", path.display());
     let persistent = KeyValues::new("Store");
     *persistent.store.borrow_mut() = Store::load(&path);
     install_key_values(host, &persistent);
     install_lists(host, &persistent);
     install_list_edits(host, &persistent);
+    install_profiles(
+        host,
+        &persistent,
+        Store::load(&directory.join(format!("profiles-{hash:016x}.json"))),
+    );
     let shared = KeyValues::new("Shared");
     install_key_values(host, &shared);
     install_lists(host, &shared);
     install_list_edits(host, &shared);
+    install_copies(host, &persistent, &shared);
 }
 
 #[cfg(test)]

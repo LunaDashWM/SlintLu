@@ -29,4 +29,8 @@ export global Shared {
     callback list-move(key: string, from: int, to: int);
     // Removes the value at one position.
     callback list-remove-at(key: string, index: int);
+    // Replaces the values whose keys start with one of `prefixes` by those of the Store, or the
+    // other way round: edit a draft here and keep it only when the user confirms.
+    callback copy-from-store(prefixes: [string]);
+    callback copy-to-store(prefixes: [string]);
 }

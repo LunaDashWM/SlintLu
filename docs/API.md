@@ -386,6 +386,8 @@ State shared by all windows of the shell. Globals you define yourself exist once
 | `list-insert(key: string, index: int, value: string)` | callback | call | Inserts a value before a position (duplicates allowed; past the end or negative appends). |
 | `list-move(key: string, from: int, to: int)` | callback | call | Moves the value at `from` to position `to` (clamped to the list). |
 | `list-remove-at(key: string, index: int)` | callback | call | Removes the value at one position. |
+| `copy-from-store(prefixes: [string])` | callback | call | Replaces the values whose keys start with one of `prefixes` by those of the Store, or the other way round: edit a draft here and keep it only when the user confirms. |
+| `copy-to-store(prefixes: [string])` | callback | call |  |
 
 ### Shell
 
@@ -429,6 +431,10 @@ Settings that survive restarts, stored per shell in $XDG_STATE_HOME/slintlu. Rea
 | `list-insert(key: string, index: int, value: string)` | callback | call | Inserts a value before a position (duplicates allowed; past the end or negative appends). |
 | `list-move(key: string, from: int, to: int)` | callback | call | Moves the value at `from` to position `to` (clamped to the list). |
 | `list-remove-at(key: string, index: int)` | callback | call | Removes the value at one position. |
+| `profiles(revision: int)` | callback → `[string]` | call | Profiles: named copies of the values whose keys start with one of `prefixes`, kept apart from the settings. Loading one replaces exactly those values. |
+| `save-profile(name: string, prefixes: [string])` | callback | call |  |
+| `load-profile(name: string, prefixes: [string])` | callback | call |  |
+| `delete-profile(name: string)` | callback | call |  |
 
 ### Switcher
 
