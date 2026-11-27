@@ -21,19 +21,22 @@ thread_local! {
     static CHOSEN: RefCell<u32> = const { RefCell::new(0) };
 }
 
-fn thumbnail(path: PathBuf, size: u32) -> Value {
-    let cached = files::thumbnail_path(&path, size);
+/// The image cached at `cached`, or an empty one while `make` creates it in the background;
+/// the revision then increases so bindings ask again.
+fn generated(
+    cached: PathBuf,
+    make: impl FnOnce() -> Result<PathBuf, String> + Send + 'static,
+) -> Value {
     if cached.is_file() {
         return Value::Image(icons::image_at(&cached));
     }
-    // Generate once in the background, then bump the revision so bindings ask again.
-    if PENDING.with(|p| p.borrow_mut().insert(path.clone())) {
+    if PENDING.with(|p| p.borrow_mut().insert(cached.clone())) {
         std::thread::spawn(move || {
-            if let Err(e) = files::thumbnail(&path, size) {
-                log::debug!("thumbnail: {e}");
+            if let Err(e) = make() {
+                log::debug!("image: {e}");
             }
             host::post(move |host| {
-                PENDING.with(|p| p.borrow_mut().remove(&path));
+                PENDING.with(|p| p.borrow_mut().remove(&cached));
                 let revision = REVISION.with(|r| {
                     *r.borrow_mut() += 1;
                     *r.borrow()
@@ -152,7 +155,31 @@ pub fn install(host: &Rc<ShellHost>) {
             if !path.is_file() {
                 return Value::Image(slint::Image::default());
             }
-            thumbnail(path, size)
+            generated(files::thumbnail_path(&path, size), move || files::thumbnail(&path, size))
+        }),
+    );
+    host.on_callback(
+        "Files",
+        "shaped",
+        Rc::new(|args| {
+            let path = files::expand_home(&string_arg(args, 0).unwrap_or_default());
+            let size = |i| number_arg(args, i).map_or(0, |n| n.clamp(0.0, 8192.0) as u32);
+            let (width, height) = (size(1), size(2));
+            let mut radii = [0.0; 4];
+            if let Some(Value::Model(model)) = args.get(3) {
+                use slint::Model;
+                for (radius, value) in radii.iter_mut().zip(model.iter()) {
+                    if let Value::Number(n) = value {
+                        *radius = n as f32;
+                    }
+                }
+            }
+            if !path.is_file() || width == 0 || height == 0 {
+                return Value::Image(slint::Image::default());
+            }
+            generated(files::shaped_path(&path, width, height, radii), move || {
+                files::shaped(&path, width, height, radii)
+            })
         }),
     );
 }

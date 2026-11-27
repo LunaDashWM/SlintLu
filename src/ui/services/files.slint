@@ -8,7 +8,8 @@ export struct FileEntry {
 export global Files {
     // The home directory; paths starting with "~" are expanded everywhere.
     in property <string> home;
-    // Increases when thumbnails finish; pass it to `thumbnail` to show them as they appear.
+    // Increases when thumbnails and shaped pictures finish; pass it to `thumbnail` and `shaped`
+    // to show them as they appear.
     in property <int> revision;
     // The path picked in the dialog `choose` opened; read it when `chosen-serial` changes.
     in property <string> chosen;
@@ -33,4 +34,9 @@ export global Files {
     // A cached thumbnail of at most `size` pixels, generated in the background (empty until
     // ready). Videos need ffmpeg.
     pure callback thumbnail(path: string, size: int, revision: int) -> image;
+    // The picture at `path` cropped to fill `width` × `height` pixels with the corners outside
+    // `radii` (top left, top right, bottom right, bottom left, in pixels) transparent: a picture
+    // in a shape, which `clip` cannot make; small ones of videos show a frame. Made in the
+    // background like `thumbnail`.
+    pure callback shaped(path: string, width: int, height: int, radii: [float], revision: int) -> image;
 }

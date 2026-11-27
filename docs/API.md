@@ -207,7 +207,7 @@ Directories and images, e.g. for a wallpaper picker.
 | Member | Type | Access | Description |
 |---|---|---|---|
 | `home` | `string` | read | The home directory; paths starting with "~" are expanded everywhere. |
-| `revision` | `int` | read | Increases when thumbnails finish; pass it to `thumbnail` to show them as they appear. |
+| `revision` | `int` | read | Increases when thumbnails and shaped pictures finish; pass it to `thumbnail` and `shaped` to show them as they appear. |
 | `chosen` | `string` | read | The path picked in the dialog `choose` opened; read it when `chosen-serial` changes. |
 | `chosen-serial` | `int` | read | Increases when the user picks something in a dialog opened by `choose`. |
 | `list(dir: string, extensions: string)` | callback → `[FileEntry]` | call | Entries of a directory, directories first. `extensions` filters files: "png,jpg,webp". |
@@ -218,6 +218,7 @@ Directories and images, e.g. for a wallpaper picker.
 | `choose(title: string, extensions: string, directory: bool, folder: string)` | callback | call | Opens the desktop's file chooser (XDG portal) to pick a file, or a folder when `directory` is true. `extensions` filters files ("png,jpg"); `folder` is where it starts. |
 | `image(path: string)` | callback → `image` | call | The image at a path (full size; use `thumbnail` for grids). |
 | `thumbnail(path: string, size: int, revision: int)` | callback → `image` | call | A cached thumbnail of at most `size` pixels, generated in the background (empty until ready). Videos need ffmpeg. |
+| `shaped(path: string, width: int, height: int, radii: [float], revision: int)` | callback → `image` | call | The picture at `path` cropped to fill `width` × `height` pixels with the corners outside `radii` (top left, top right, bottom right, bottom left, in pixels) transparent: a picture in a shape, which `clip` cannot make; small ones of videos show a frame. Made in the background like `thumbnail`. |
 
 ### I18n
 

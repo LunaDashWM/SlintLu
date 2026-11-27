@@ -170,6 +170,83 @@ fn thumbnail_in(cache: &Path, path: &Path, size: u32) -> Result<PathBuf, String>
     Ok(target)
 }
 
+/// Cuts at most this large are made from the thumbnail of this size.
+const SHAPED_FROM_THUMBNAIL: u32 = 512;
+
+/// Where [`shaped`] caches its result; changes when the file changes.
+pub fn shaped_path(path: &Path, width: u32, height: u32, radii: [f32; 4]) -> PathBuf {
+    shaped_path_in(&cache_dir(), path, width, height, radii)
+}
+
+fn shaped_path_in(cache: &Path, path: &Path, width: u32, height: u32, radii: [f32; 4]) -> PathBuf {
+    let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();
+    let mut hasher = DefaultHasher::new();
+    (path, modified, width, height, radii.map(f32::to_bits)).hash(&mut hasher);
+    cache.join(format!("shaped-{:016x}.png", hasher.finish()))
+}
+
+/// The image at `path` cropped to fill `width` × `height` pixels, transparent outside a
+/// rectangle whose corners (top left, top right, bottom right, bottom left) are rounded by
+/// `radii` pixels, cached as PNG: a picture in a shape Slint's software renderer cannot clip
+/// to. Small cuts of videos show a frame (see [`thumbnail`]). Blocking.
+pub fn shaped(path: &Path, width: u32, height: u32, radii: [f32; 4]) -> Result<PathBuf, String> {
+    shaped_in(&cache_dir(), path, width, height, radii)
+}
+
+fn shaped_in(
+    cache: &Path,
+    path: &Path,
+    width: u32,
+    height: u32,
+    radii: [f32; 4],
+) -> Result<PathBuf, String> {
+    let target = shaped_path_in(cache, path, width, height, radii);
+    if target.is_file() {
+        return Ok(target);
+    }
+    if let Some(dir) = target.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    // Small cuts (grid tiles) come from the cached thumbnail: quicker, and videos have one.
+    let source = if width.max(height) <= SHAPED_FROM_THUMBNAIL {
+        thumbnail_in(cache, path, SHAPED_FROM_THUMBNAIL)?
+    } else {
+        path.to_path_buf()
+    };
+    let mut image = image::DynamicImage::ImageRgba8(decode(&source)?)
+        .resize_to_fill(width.max(1), height.max(1), image::imageops::FilterType::Triangle)
+        .into_rgba8();
+    round_corners(&mut image, radii);
+    let partial = target.with_extension(format!("{}.part.png", std::process::id()));
+    image.save_with_format(&partial, image::ImageFormat::Png).map_err(|e| e.to_string())?;
+    std::fs::rename(&partial, &target).map_err(|e| e.to_string())?;
+    Ok(target)
+}
+
+/// Fades the pixels outside the rounded corners out, with an anti-aliased edge.
+fn round_corners(image: &mut image::RgbaImage, radii: [f32; 4]) {
+    let (width, height) = (image.width() as f32, image.height() as f32);
+    let limit = width.min(height) / 2.0;
+    let [top_left, top_right, bottom_right, bottom_left] = radii.map(|r| r.clamp(0.0, limit));
+    for (x, y, pixel) in image.enumerate_pixels_mut() {
+        let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
+        // The corner this pixel is in, and the centre of its circle.
+        let (radius, cx, cy) = match (px < width / 2.0, py < height / 2.0) {
+            (true, true) => (top_left, top_left, top_left),
+            (false, true) => (top_right, width - top_right, top_right),
+            (false, false) => (bottom_right, width - bottom_right, height - bottom_right),
+            (true, false) => (bottom_left, bottom_left, height - bottom_left),
+        };
+        let outside_x = if px < width / 2.0 { px < cx } else { px > cx };
+        let outside_y = if py < height / 2.0 { py < cy } else { py > cy };
+        if radius > 0.0 && outside_x && outside_y {
+            let distance = ((px - cx).powi(2) + (py - cy).powi(2)).sqrt();
+            let coverage = (radius - distance + 0.5).clamp(0.0, 1.0);
+            pixel.0[3] = (f32::from(pixel.0[3]) * coverage).round() as u8;
+        }
+    }
+}
+
 /// Writes a frame of a video, scaled to fit `size`, as PNG with ffmpeg.
 fn video_frame(path: &Path, size: u32, target: &Path) -> Result<(), String> {
     let scale = format!("scale={size}:{size}:force_original_aspect_ratio=decrease");
@@ -240,6 +317,20 @@ mod tests {
         assert_ne!(first, second);
         assert_eq!(image::open(&second).unwrap().to_rgb8().get_pixel(0, 0).0, [0, 0, 255]);
         assert_eq!(thumbnail_in(dir.path(), &source, 2).unwrap(), second);
+    }
+
+    #[test]
+    fn shapes_have_transparent_corners() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("wide.png");
+        image::RgbImage::from_pixel(400, 200, image::Rgb([20, 200, 20])).save(&source).unwrap();
+        let shaped = shaped_in(dir.path(), &source, 100, 100, [50.0, 0.0, 10.0, 0.0]).unwrap();
+        let image = image::open(&shaped).unwrap().into_rgba8();
+        assert_eq!((image.width(), image.height()), (100, 100));
+        assert_eq!(image.get_pixel(0, 0).0[3], 0);
+        assert_eq!(image.get_pixel(99, 0).0[3], 255);
+        assert_eq!(image.get_pixel(99, 99).0[3], 0);
+        assert_eq!(image.get_pixel(50, 50).0, [20, 200, 20, 255]);
     }
 
     #[test]
