@@ -22,7 +22,7 @@ An ordinary application window (settings, dialogs …), shown once.
 
 ### Icon (inherits `Image`)
 
-One of SlintLu's stroke icons by name, tinted with `color`. Names: apps, arrow-down, arrow-left, arrow-right, arrow-up, battery, battery-charging, bell, bell-off, bluetooth, brightness, calendar, check, chevron-down, chevron-left, chevron-right, clipboard, close, coffee, cpu, dashboard, diamond, disk, dock, document, download, edit, enter, ethernet, eye, eye-off, file, folder, globe, grid, home, image, info, keyboard, language, list, lock, logout, maximize, memory, mic, minus, monitor, moon, music, network, next, palette, panel, pause, play, plus, power, previous, reboot, screenshot, search, settings, sleep, sun, terminal, thermometer, trash, usb, user, video, volume, volume-low, volume-mute, warning, wifi, wifi-off, window, workspace. Unknown names show "info".
+One of SlintLu's stroke icons by name, tinted with `color`. Names: apps, arrow-down, arrow-left, arrow-right, arrow-up, battery, battery-charging, bell, bell-off, bluetooth, brightness, calendar, check, chevron-down, chevron-left, chevron-right, clipboard, clock, close, coffee, cpu, dashboard, diamond, disk, dock, document, download, edit, enter, ethernet, eye, eye-off, file, folder, globe, gpu, grid, home, image, info, keyboard, language, layers, list, lock, logout, maximize, memory, mic, minus, monitor, moon, music, network, next, palette, panel, pause, play, plus, power, previous, reboot, screenshot, search, settings, shapes, shuffle, sleep, star, sun, terminal, text, thermometer, trash, upload, usb, user, video, volume, volume-low, volume-mute, warning, widgets, wifi, wifi-off, window, workspace. Unknown names show "info".
 
 | Member | Type | Access | Description |
 |---|---|---|---|
@@ -75,7 +75,7 @@ Installed applications (freedesktop desktop entries), refreshed when they change
 | `launch(id: string)` | callback | call |  |
 | `get(id: string)` | callback → `AppInfo` | call | One application by desktop file id (empty fields when unknown). |
 | `icon-for(app-id: string)` | callback → `image` | call | The icon of the application a window belongs to, from its app id (Wayland app_id or X11 class), falling back to the icon theme. |
-| `group-windows(pinned: [string], windows: [WindowInfo])` | callback → `[AppWindows]` | call | Groups windows by application: the `pinned` desktop file ids first (in that order, with or without windows), then the other applications with windows in order of appearance. |
+| `group-windows(pinned: [string], windows: [WindowInfo])` | callback → `[AppWindows]` | call | Groups windows by application: the `pinned` desktop file ids first (in that order, with or without windows), then the other applications by their first window's screen position. |
 | `launch-action(id: string, action: string)` | callback | call | Runs one of the application's extra actions (e.g. "new-private-window"). |
 
 ### Audio
@@ -194,7 +194,7 @@ The compositor itself: its name, requests it sends to the shell (keyboard shortc
 | `preference-number(key: string, fallback: float, revision: int)` | callback → `float` | call | The compositor's own preferences (LunaDash), e.g. preference-number("gap", 12, revision); the fallback when the compositor has none or does not know the key. |
 | `preference-bool(key: string, fallback: bool, revision: int)` | callback → `bool` | call |  |
 | `preference-string(key: string, fallback: string, revision: int)` | callback → `string` | call |  |
-| `preference-color(key: string, fallback: color, revision: int)` | callback → `color` | call | a `#rrggbb` preference |
+| `preference-color(key: string, fallback: color, revision: int)` | callback → `color` | call | A "#rrggbb" preference as a colour, e.g. preference-color("accent", Theme.accent, revision). |
 | `set-preference-number(key: string, value: float)` | callback | call | Changes a compositor preference; readers see the new value immediately. |
 | `set-preference-bool(key: string, value: bool)` | callback | call |  |
 | `set-preference-string(key: string, value: string)` | callback | call |  |
@@ -528,7 +528,7 @@ Workspaces and windows of niri, Hyprland, Sway or LunaDash.
 |---|---|---|---|
 | `available` | `bool` | read |  |
 | `all` | `[WorkspaceInfo]` | read |  |
-| `windows` | `[WindowInfo]` | read |  |
+| `windows` | `[WindowInfo]` | read | Ordered by workspace, then screen position; unreported positions retain compositor order. |
 | `focused-window` | `WindowInfo` | read |  |
 | `keyboard-layout` | `string` | read |  |
 | `focused-output` | `string` | read | Connector name of the screen with keyboard focus; empty when unknown. |
@@ -793,6 +793,7 @@ A Wi-Fi network in range (its strongest access point).
 | `workspace` | `int` |  |  |
 | `focused` | `bool` |  |  |
 | `urgent` | `bool` |  |  |
+| `icon` | `image` |  |  |
 
 ### WorkspaceInfo
 

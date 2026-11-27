@@ -2,7 +2,7 @@
 
 import { Theme } from "services/theme.slint";
 
-// One of SlintLu's stroke icons by name, tinted with `color`. Names: apps, arrow-down, arrow-left, arrow-right, arrow-up, battery, battery-charging, bell, bell-off, bluetooth, brightness, calendar, check, chevron-down, chevron-left, chevron-right, clipboard, close, coffee, cpu, dashboard, diamond, disk, dock, document, download, edit, enter, ethernet, eye, eye-off, file, folder, globe, grid, home, image, info, keyboard, language, list, lock, logout, maximize, memory, mic, minus, monitor, moon, music, network, next, palette, panel, pause, play, plus, power, previous, reboot, screenshot, search, settings, sleep, sun, terminal, thermometer, trash, usb, user, video, volume, volume-low, volume-mute, warning, wifi, wifi-off, window, workspace. Unknown names show "info".
+// One of SlintLu's stroke icons by name, tinted with `color`. Names: apps, arrow-down, arrow-left, arrow-right, arrow-up, battery, battery-charging, bell, bell-off, bluetooth, brightness, calendar, check, chevron-down, chevron-left, chevron-right, clipboard, clock, close, coffee, cpu, dashboard, diamond, disk, dock, document, download, edit, enter, ethernet, eye, eye-off, file, folder, globe, gpu, grid, home, image, info, keyboard, language, layers, list, lock, logout, maximize, memory, mic, minus, monitor, moon, music, network, next, palette, panel, pause, play, plus, power, previous, reboot, screenshot, search, settings, shapes, shuffle, sleep, star, sun, terminal, text, thermometer, trash, upload, usb, user, video, volume, volume-low, volume-mute, warning, widgets, wifi, wifi-off, window, workspace. Unknown names show "info".
 export component Icon inherits Image {
     // The icon's file name in res/icons, without ".svg".
     in property <string> name;
@@ -30,6 +30,7 @@ export component Icon inherits Image {
         root.name == "chevron-left" ? @image-url("res/icons/chevron-left.svg") :
         root.name == "chevron-right" ? @image-url("res/icons/chevron-right.svg") :
         root.name == "clipboard" ? @image-url("res/icons/clipboard.svg") :
+        root.name == "clock" ? @image-url("res/icons/clock.svg") :
         root.name == "close" ? @image-url("res/icons/close.svg") :
         root.name == "coffee" ? @image-url("res/icons/coffee.svg") :
         root.name == "cpu" ? @image-url("res/icons/cpu.svg") :
@@ -47,12 +48,14 @@ export component Icon inherits Image {
         root.name == "file" ? @image-url("res/icons/file.svg") :
         root.name == "folder" ? @image-url("res/icons/folder.svg") :
         root.name == "globe" ? @image-url("res/icons/globe.svg") :
+        root.name == "gpu" ? @image-url("res/icons/gpu.svg") :
         root.name == "grid" ? @image-url("res/icons/grid.svg") :
         root.name == "home" ? @image-url("res/icons/home.svg") :
         root.name == "image" ? @image-url("res/icons/image.svg") :
         root.name == "info" ? @image-url("res/icons/info.svg") :
         root.name == "keyboard" ? @image-url("res/icons/keyboard.svg") :
         root.name == "language" ? @image-url("res/icons/language.svg") :
+        root.name == "layers" ? @image-url("res/icons/layers.svg") :
         root.name == "list" ? @image-url("res/icons/list.svg") :
         root.name == "lock" ? @image-url("res/icons/lock.svg") :
         root.name == "logout" ? @image-url("res/icons/logout.svg") :
@@ -76,11 +79,16 @@ export component Icon inherits Image {
         root.name == "screenshot" ? @image-url("res/icons/screenshot.svg") :
         root.name == "search" ? @image-url("res/icons/search.svg") :
         root.name == "settings" ? @image-url("res/icons/settings.svg") :
+        root.name == "shapes" ? @image-url("res/icons/shapes.svg") :
+        root.name == "shuffle" ? @image-url("res/icons/shuffle.svg") :
         root.name == "sleep" ? @image-url("res/icons/sleep.svg") :
+        root.name == "star" ? @image-url("res/icons/star.svg") :
         root.name == "sun" ? @image-url("res/icons/sun.svg") :
         root.name == "terminal" ? @image-url("res/icons/terminal.svg") :
+        root.name == "text" ? @image-url("res/icons/text.svg") :
         root.name == "thermometer" ? @image-url("res/icons/thermometer.svg") :
         root.name == "trash" ? @image-url("res/icons/trash.svg") :
+        root.name == "upload" ? @image-url("res/icons/upload.svg") :
         root.name == "usb" ? @image-url("res/icons/usb.svg") :
         root.name == "user" ? @image-url("res/icons/user.svg") :
         root.name == "video" ? @image-url("res/icons/video.svg") :
@@ -88,6 +96,7 @@ export component Icon inherits Image {
         root.name == "volume-low" ? @image-url("res/icons/volume-low.svg") :
         root.name == "volume-mute" ? @image-url("res/icons/volume-mute.svg") :
         root.name == "warning" ? @image-url("res/icons/warning.svg") :
+        root.name == "widgets" ? @image-url("res/icons/widgets.svg") :
         root.name == "wifi" ? @image-url("res/icons/wifi.svg") :
         root.name == "wifi-off" ? @image-url("res/icons/wifi-off.svg") :
         root.name == "window" ? @image-url("res/icons/window.svg") :
