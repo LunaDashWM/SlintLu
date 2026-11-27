@@ -53,11 +53,27 @@ fn parse_cpuinfo(cpuinfo: &str) -> Processor {
         }
     }
     Processor {
-        model: model.split_whitespace().collect::<Vec<_>>().join(" "),
+        model: tidy_model(&model),
         cores: if cores.is_empty() { threads } else { cores.len() },
         threads,
         max_mhz: 0,
     }
+}
+
+/// "Intel(R) Xeon(R) CPU E5-2680 v2 @ 2.80GHz" → "Intel Xeon E5-2680 v2", "AMD Ryzen 7 5800X
+/// 8-Core Processor" → "AMD Ryzen 7 5800X": the marks, the base clock and the obvious go.
+fn tidy_model(model: &str) -> String {
+    let model = model.split(" @ ").next().unwrap_or_default();
+    let model = model.replace("(R)", "").replace("(TM)", "").replace("(tm)", "");
+    model
+        .split_whitespace()
+        .filter(|word| {
+            !matches!(*word, "CPU" | "Processor")
+                && !word.ends_with("-Core")
+                && !word.ends_with("-core")
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 pub fn processor() -> Processor {
@@ -203,6 +219,12 @@ mod tests {
              processor\t: 2\nmodel name\t: AMD  Ryzen 5\nphysical id\t: 0\ncore id\t: 1\n",
         );
         assert_eq!(info.model, "AMD Ryzen 5");
+        assert_eq!(
+            tidy_model("Intel(R) Xeon(R) CPU E5-2680 v2 @ 2.80GHz"),
+            "Intel Xeon E5-2680 v2"
+        );
+        assert_eq!(tidy_model("AMD Ryzen 7 5800X 8-Core Processor"), "AMD Ryzen 7 5800X");
+        assert_eq!(tidy_model("Intel(R) Core(TM) i7-1165G7 @ 2.80GHz"), "Intel Core i7-1165G7");
         assert_eq!((info.cores, info.threads), (2, 3));
     }
 
