@@ -194,6 +194,7 @@ The compositor itself: its name, requests it sends to the shell (keyboard shortc
 | `preference-number(key: string, fallback: float, revision: int)` | callback → `float` | call | The compositor's own preferences (LunaDash), e.g. preference-number("gap", 12, revision); the fallback when the compositor has none or does not know the key. |
 | `preference-bool(key: string, fallback: bool, revision: int)` | callback → `bool` | call |  |
 | `preference-string(key: string, fallback: string, revision: int)` | callback → `string` | call |  |
+| `preference-color(key: string, fallback: color, revision: int)` | callback → `color` | call | a `#rrggbb` preference |
 | `set-preference-number(key: string, value: float)` | callback | call | Changes a compositor preference; readers see the new value immediately. |
 | `set-preference-bool(key: string, value: bool)` | callback | call |  |
 | `set-preference-string(key: string, value: string)` | callback | call |  |

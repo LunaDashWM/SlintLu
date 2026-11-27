@@ -81,6 +81,8 @@ export global Compositor {
     pure callback preference-number(key: string, fallback: float, revision: int) -> float;
     pure callback preference-bool(key: string, fallback: bool, revision: int) -> bool;
     pure callback preference-string(key: string, fallback: string, revision: int) -> string;
+    // A "#rrggbb" preference as a colour, e.g. preference-color("accent", Theme.accent, revision).
+    pure callback preference-color(key: string, fallback: color, revision: int) -> color;
     // Changes a compositor preference; readers see the new value immediately.
     callback set-preference-number(key: string, value: float);
     callback set-preference-bool(key: string, value: bool);

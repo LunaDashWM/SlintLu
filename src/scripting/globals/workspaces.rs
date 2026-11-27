@@ -330,6 +330,17 @@ fn install_preference_readers(host: &Rc<ShellHost>) {
             string(preference(&key).and_then(|v| v.as_str().map(str::to_owned)).unwrap_or(fallback))
         }),
     );
+    host.on_callback(
+        "Compositor",
+        "preference-color",
+        Rc::new(|args| {
+            let key = string_arg(args, 0).unwrap_or_default();
+            preference(&key)
+                .and_then(|v| v.as_str().and_then(slintlu::theme::Color::parse))
+                .map(|c| Value::Brush(slint::Color::from_rgb_u8(c.0, c.1, c.2).into()))
+                .unwrap_or_else(|| args.get(1).cloned().unwrap_or(Value::Void))
+        }),
+    );
 }
 
 /// Turns a setter's arguments into the JSON value it stores.
