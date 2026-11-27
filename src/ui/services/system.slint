@@ -29,6 +29,39 @@ export global System {
     in property <string> os;
     // e.g. "3h 12m".
     in property <string> uptime;
+    // The processor's model, cores, threads and highest clock ("4.6 GHz", empty when unknown).
+    in property <string> processor;
+    in property <int> processor-cores;
+    in property <int> processor-threads;
+    in property <string> processor-speed;
+    // e.g. "x86_64".
+    in property <string> architecture;
+    // Installed packages and the package manager counting them, e.g. "1532 (pacman)".
+    in property <string> packages;
+    // e.g. "15.6 GiB".
+    in property <string> memory-total;
+    // Every graphics card ("NVIDIA GeForce RTX 3050") and its driver ("nvidia 620.70.06").
+    in property <[string]> gpus;
+    in property <[string]> gpu-drivers;
+    // The first card that reports its state (NVIDIA through NVML, AMD): its load and video
+    // memory in 0..1, temperature (°C), power (W) and clock (MHz), each 0 when unknown.
+    // A sleeping card is not woken to ask.
+    in property <bool> gpu-available;
+    in property <float> gpu;
+    in property <float> gpu-memory;
+    in property <string> gpu-memory-text;
+    in property <float> gpu-temperature;
+    in property <float> gpu-power;
+    in property <float> gpu-clock;
+    // The last minute, oldest first: utilisation in 0..1, and the network traffic in 0..1 of
+    // `network-peak` (bytes per second, also as text), the busiest moment in that minute.
+    in property <[float]> cpu-history;
+    in property <[float]> memory-history;
+    in property <[float]> gpu-history;
+    in property <[float]> download-history;
+    in property <[float]> upload-history;
+    in property <float> network-peak;
+    in property <string> network-peak-text;
 }
 
 // The system battery, if any.

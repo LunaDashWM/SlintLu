@@ -469,6 +469,29 @@ Machine statistics, refreshed every two seconds.
 | `kernel` | `string` | read |  |
 | `os` | `string` | read |  |
 | `uptime` | `string` | read | e.g. "3h 12m". |
+| `processor` | `string` | read | The processor's model, cores, threads and highest clock ("4.6 GHz", empty when unknown). |
+| `processor-cores` | `int` | read |  |
+| `processor-threads` | `int` | read |  |
+| `processor-speed` | `string` | read |  |
+| `architecture` | `string` | read | e.g. "x86_64". |
+| `packages` | `string` | read | Installed packages and the package manager counting them, e.g. "1532 (pacman)". |
+| `memory-total` | `string` | read | e.g. "15.6 GiB". |
+| `gpus` | `[string]` | read | Every graphics card ("NVIDIA GeForce RTX 3050") and its driver ("nvidia 620.70.06"). |
+| `gpu-drivers` | `[string]` | read |  |
+| `gpu-available` | `bool` | read | The first card that reports its state (NVIDIA through NVML, AMD): its load and video memory in 0..1, temperature (°C), power (W) and clock (MHz), each 0 when unknown. A sleeping card is not woken to ask. |
+| `gpu` | `float` | read |  |
+| `gpu-memory` | `float` | read |  |
+| `gpu-memory-text` | `string` | read |  |
+| `gpu-temperature` | `float` | read |  |
+| `gpu-power` | `float` | read |  |
+| `gpu-clock` | `float` | read |  |
+| `cpu-history` | `[float]` | read | The last minute, oldest first: utilisation in 0..1, and the network traffic in 0..1 of `network-peak` (bytes per second, also as text), the busiest moment in that minute. |
+| `memory-history` | `[float]` | read |  |
+| `gpu-history` | `[float]` | read |  |
+| `download-history` | `[float]` | read |  |
+| `upload-history` | `[float]` | read |  |
+| `network-peak` | `float` | read |  |
+| `network-peak-text` | `string` | read |  |
 
 ### Theme
 
