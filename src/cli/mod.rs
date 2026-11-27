@@ -5,7 +5,6 @@ mod info;
 mod init;
 mod msg;
 mod outputs;
-mod render;
 mod run;
 mod signals;
 mod workspaces;
@@ -62,34 +61,6 @@ enum Command {
         #[command(subcommand)]
         command: msg::MsgCommand,
     },
-    /// Play a component on a clock of its own and write each frame as a PNG.
-    Render {
-        /// The .slint file.
-        path: PathBuf,
-        /// The component to render (default: the last one the file exports).
-        #[arg(long)]
-        component: Option<String>,
-        /// The directory the frames go to.
-        #[arg(long)]
-        out: PathBuf,
-        /// What frame file names start with; four digits and .png follow.
-        #[arg(long, default_value = "frame-")]
-        prefix: String,
-        /// Frame size, WIDTHxHEIGHT.
-        #[arg(long, default_value = "300x300", value_parser = parse_size)]
-        size: (u32, u32),
-        #[arg(long, default_value_t = 30.0)]
-        fps: f64,
-        /// How much of the animation to render.
-        #[arg(long, default_value_t = 2.0)]
-        seconds: f64,
-    },
-}
-
-fn parse_size(text: &str) -> Result<(u32, u32), String> {
-    let (width, height) = text.split_once('x').ok_or("expected WIDTHxHEIGHT")?;
-    let parse = |n: &str| n.parse::<u32>().ok().filter(|n| *n > 0).ok_or("expected WIDTHxHEIGHT");
-    Ok((parse(width)?, parse(height)?))
 }
 
 #[derive(Args, Debug, Clone)]
@@ -123,18 +94,6 @@ pub fn main() -> ExitCode {
         Some(Command::Info) => info::info(),
         Some(Command::Init { dir, force }) => init::init(dir, force),
         Some(Command::Msg { command }) => msg::msg(command),
-        Some(Command::Render { path, component, out, prefix, size, fps, seconds }) => {
-            render::render(render::RenderOptions {
-                path,
-                component,
-                out,
-                prefix,
-                width: size.0,
-                height: size.1,
-                fps,
-                seconds,
-            })
-        }
         Some(Command::LibraryPath) => crate::scripting::library::install()
             .map(|_| println!("{}", crate::scripting::library::dir().display()))
             .map_err(|e| e.to_string()),
