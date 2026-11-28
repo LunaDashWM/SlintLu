@@ -38,5 +38,9 @@ export global Files {
     // `radii` (top left, top right, bottom right, bottom left, in pixels) transparent: a picture
     // in a shape, which `clip` cannot make; small ones of videos show a frame. Made in the
     // background like `thumbnail`.
+    // An accent colour taken from the picture at `path`, Material You style: a light tone of
+    // the hue that covers much of it and is vivid. Transparent until it is known (made in the
+    // background like `thumbnail`) and for pictures without colour.
+    pure callback accent(path: string, revision: int) -> color;
     pure callback shaped(path: string, width: int, height: int, radii: [float], revision: int) -> image;
 }

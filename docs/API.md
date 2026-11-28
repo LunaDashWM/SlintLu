@@ -218,7 +218,8 @@ Directories and images, e.g. for a wallpaper picker.
 | `choose(title: string, extensions: string, directory: bool, folder: string)` | callback | call | Opens the desktop's file chooser (XDG portal) to pick a file, or a folder when `directory` is true. `extensions` filters files ("png,jpg"); `folder` is where it starts. |
 | `image(path: string)` | callback → `image` | call | The image at a path (full size; use `thumbnail` for grids). |
 | `thumbnail(path: string, size: int, revision: int)` | callback → `image` | call | A cached thumbnail of at most `size` pixels, generated in the background (empty until ready). Videos need ffmpeg. |
-| `shaped(path: string, width: int, height: int, radii: [float], revision: int)` | callback → `image` | call | The picture at `path` cropped to fill `width` × `height` pixels with the corners outside `radii` (top left, top right, bottom right, bottom left, in pixels) transparent: a picture in a shape, which `clip` cannot make; small ones of videos show a frame. Made in the background like `thumbnail`. |
+| `accent(path: string, revision: int)` | callback → `color` | call | The picture at `path` cropped to fill `width` × `height` pixels with the corners outside `radii` (top left, top right, bottom right, bottom left, in pixels) transparent: a picture in a shape, which `clip` cannot make; small ones of videos show a frame. Made in the background like `thumbnail`. An accent colour taken from the picture at `path`, Material You style: a light tone of the hue that covers much of it and is vivid. Transparent until it is known (made in the background like `thumbnail`) and for pictures without colour. |
+| `shaped(path: string, width: int, height: int, radii: [float], revision: int)` | callback → `image` | call |  |
 
 ### I18n
 

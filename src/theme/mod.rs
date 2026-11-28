@@ -1,10 +1,12 @@
 //! Colour themes: built-in palettes, a `theme.json` in the shell's directory, pywal colours and
-//! automatic light / dark switching, and the installed fonts.
+//! automatic light / dark switching, accents taken from wallpapers, and the installed fonts.
 
+mod accent;
 mod config;
 pub mod fonts;
 mod palette;
 mod pywal;
 
+pub use accent::accent_of;
 pub use config::{ThemeConfig, choose_palette, resolve, uses_dark_slot};
 pub use palette::{Color, Palette, preset, presets};

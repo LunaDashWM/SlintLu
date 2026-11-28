@@ -1,7 +1,7 @@
 //! The `Files` global: directory listings, images and background thumbnails.
 
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -9,6 +9,7 @@ use std::sync::Arc;
 use slint_interpreter::Value;
 use slintlu::dbus::file_chooser::{self, ChooseOptions, ChooseRequest};
 use slintlu::files::{self, FileKind};
+use slintlu::theme::{Color, accent_of};
 use slintlu::util::xdg;
 
 use super::icons;
@@ -17,8 +18,18 @@ use crate::scripting::{ShellHost, host};
 
 thread_local! {
     static PENDING: RefCell<HashSet<PathBuf>> = RefCell::default();
+    // Accents by the thumbnail they were taken from (its name changes with the file).
+    static ACCENTS: RefCell<HashMap<PathBuf, Option<Color>>> = RefCell::default();
     static REVISION: RefCell<u32> = const { RefCell::new(0) };
     static CHOSEN: RefCell<u32> = const { RefCell::new(0) };
+}
+
+fn bump_revision(host: &ShellHost) {
+    let revision = REVISION.with(|r| {
+        *r.borrow_mut() += 1;
+        *r.borrow()
+    });
+    host.set_global("Files", "revision", Value::Number(revision.into()));
 }
 
 /// The image cached at `cached`, or an empty one while `make` creates it in the background;
@@ -37,15 +48,38 @@ fn generated(
             }
             host::post(move |host| {
                 PENDING.with(|p| p.borrow_mut().remove(&cached));
-                let revision = REVISION.with(|r| {
-                    *r.borrow_mut() += 1;
-                    *r.borrow()
-                });
-                host.set_global("Files", "revision", Value::Number(revision.into()));
+                bump_revision(host);
             });
         });
     }
     Value::Image(slint::Image::default())
+}
+
+/// The accent of the picture at `path`, from a small thumbnail made in the background;
+/// transparent until it is known, and for pictures without colour.
+fn accent(path: PathBuf) -> Value {
+    const SIZE: u32 = 256;
+    let key = files::thumbnail_path(&path, SIZE);
+    if let Some(known) = ACCENTS.with(|a| a.borrow().get(&key).copied()) {
+        let Color(r, g, b) = known.unwrap_or(Color(0, 0, 0));
+        let alpha = if known.is_some() { 255 } else { 0 };
+        return Value::Brush(slint::Color::from_argb_u8(alpha, r, g, b).into());
+    }
+    if PENDING.with(|p| p.borrow_mut().insert(key.clone())) {
+        std::thread::spawn(move || {
+            let colour = files::thumbnail(&path, SIZE)
+                .and_then(|thumb| files::decode(&thumb))
+                .map_err(|e| log::debug!("accent: {e}"))
+                .ok()
+                .and_then(|image| accent_of(image.as_raw()));
+            host::post(move |host| {
+                PENDING.with(|p| p.borrow_mut().remove(&key));
+                ACCENTS.with(|a| a.borrow_mut().insert(key, colour));
+                bump_revision(host);
+            });
+        });
+    }
+    Value::Brush(slint::Color::from_argb_u8(0, 0, 0, 0).into())
 }
 
 /// Opens the portal's file chooser off the UI thread and publishes the choice.
@@ -156,6 +190,17 @@ pub fn install(host: &Rc<ShellHost>) {
                 return Value::Image(slint::Image::default());
             }
             generated(files::thumbnail_path(&path, size), move || files::thumbnail(&path, size))
+        }),
+    );
+    host.on_callback(
+        "Files",
+        "accent",
+        Rc::new(|args| {
+            let path = files::expand_home(&string_arg(args, 0).unwrap_or_default());
+            if !path.is_file() {
+                return Value::Brush(slint::Color::from_argb_u8(0, 0, 0, 0).into());
+            }
+            accent(path)
         }),
     );
     host.on_callback(
