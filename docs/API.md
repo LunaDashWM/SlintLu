@@ -434,6 +434,7 @@ Settings that survive restarts, stored per shell in $XDG_STATE_HOME/slintlu. Rea
 | `list-move(key: string, from: int, to: int)` | callback | call | Moves the value at `from` to position `to` (clamped to the list). |
 | `list-remove-at(key: string, index: int)` | callback | call | Removes the value at one position. |
 | `profiles(revision: int)` | callback → `[string]` | call | Profiles: named copies of the values whose keys start with one of `prefixes`, kept apart from the settings. Loading one replaces exactly those values. |
+| `profile-string(name: string, key: string, fallback: string, revision: int)` | callback → `string` | call | A text value kept in a profile, e.g. its wallpaper for a thumbnail. |
 | `save-profile(name: string, prefixes: [string])` | callback | call |  |
 | `load-profile(name: string, prefixes: [string])` | callback | call |  |
 | `delete-profile(name: string)` | callback | call |  |

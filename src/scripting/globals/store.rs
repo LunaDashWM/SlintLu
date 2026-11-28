@@ -255,6 +255,21 @@ fn install_profiles(host: &Rc<ShellHost>, kv: &Rc<KeyValues>, profiles: Store) {
         "profiles",
         Rc::new(move |_| list_value(p.borrow().keys().map(string))),
     );
+    let p = profiles.clone();
+    host.on_callback(
+        kv.global,
+        "profile-string",
+        Rc::new(move |args| {
+            let fallback = string_arg(args, 2).unwrap_or_default();
+            let value = p
+                .borrow()
+                .get(&key(args))
+                .and_then(|profile| profile.get(string_arg(args, 1).unwrap_or_default()))
+                .and_then(Json::as_str)
+                .map(str::to_owned);
+            string(value.unwrap_or(fallback))
+        }),
+    );
     let action = |run: fn(&KeyValues, &RefCell<Store>, String, Vec<String>)| {
         let weak = Rc::downgrade(host);
         let (kv, profiles) = (kv.clone(), profiles.clone());

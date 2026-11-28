@@ -29,6 +29,8 @@ export global Store {
     // Profiles: named copies of the values whose keys start with one of `prefixes`, kept apart
     // from the settings. Loading one replaces exactly those values.
     pure callback profiles(revision: int) -> [string];
+    // A text value kept in a profile, e.g. its wallpaper for a thumbnail.
+    pure callback profile-string(name: string, key: string, fallback: string, revision: int) -> string;
     callback save-profile(name: string, prefixes: [string]);
     callback load-profile(name: string, prefixes: [string]);
     callback delete-profile(name: string);
