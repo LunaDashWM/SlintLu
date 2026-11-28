@@ -358,6 +358,7 @@ The session lock and the user's account. Define a component inheriting `LockWind
 | `lock-before-sleep` | `bool` | read = `true` | Lock automatically before the machine suspends (see `set-lock-before-sleep`). |
 | `real-name` | `string` | read | The account's full name ("" without one) and picture (AccountsService, else ~/.face). |
 | `avatar` | `image` | read |  |
+| `avatar-round` | `image` | read | The picture cut to a circle, for round frames (`clip` keeps square corners). |
 | `avatar-error` | `string` | read | Why the last set-avatar failed, or "". |
 | `lock()` | callback | call | Locks now (also triggered by `loginctl lock-session` and `Power.lock()`). |
 | `authenticate(password: string)` | callback | call | Checks the password with PAM and unlocks on success. |

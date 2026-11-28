@@ -84,25 +84,37 @@ fn home() -> std::path::PathBuf {
     std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_else(|| "/".into())
 }
 
-/// Decodes a picture off the UI thread. Pixels, not a path: Slint caches images by path and
-/// would keep showing the old ~/.face.
-fn decode(path: &std::path::Path) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
-    let picture = accounts::open_picture(path)
-        .map_err(|e| log::warn!("account picture: {e}"))
-        .ok()?
-        .into_rgba8();
-    Some(SharedPixelBuffer::clone_from_slice(picture.as_raw(), picture.width(), picture.height()))
+type Pixels = SharedPixelBuffer<Rgba8Pixel>;
+
+fn pixels(picture: &image::RgbaImage) -> Pixels {
+    SharedPixelBuffer::clone_from_slice(picture.as_raw(), picture.width(), picture.height())
+}
+
+/// Decodes a picture off the UI thread, as it is and cut to a circle (Slint's `clip` keeps
+/// square corners). Pixels, not a path: Slint caches images by path and would keep showing
+/// the old ~/.face.
+fn decode(path: &std::path::Path) -> Option<(Pixels, Pixels)> {
+    let picture =
+        accounts::open_picture(path).map_err(|e| log::warn!("account picture: {e}")).ok()?;
+    let side = picture.width().min(picture.height()).max(1);
+    let mut round =
+        picture.resize_to_fill(side, side, image::imageops::FilterType::Triangle).into_rgba8();
+    slintlu::files::round_corners(&mut round, [side as f32 / 2.0; 4]);
+    Some((pixels(&picture.into_rgba8()), pixels(&round)))
 }
 
 /// Reads the account's name and picture on a thread, then shows them.
 fn load_account() {
     std::thread::spawn(|| {
         let account = accounts::load(&security::current_user(), &home());
-        let pixels = account.icon.as_deref().and_then(decode);
+        let pictures = account.icon.as_deref().and_then(decode);
         host::post(move |host| {
             host.set_global("Session", "real-name", string(&account.real_name));
-            let avatar = pixels.map(Image::from_rgba8).unwrap_or_default();
+            let (avatar, round) = pictures
+                .map(|(avatar, round)| (Image::from_rgba8(avatar), Image::from_rgba8(round)))
+                .unwrap_or_default();
             host.set_global("Session", "avatar", Value::Image(avatar));
+            host.set_global("Session", "avatar-round", Value::Image(round));
         });
     });
 }

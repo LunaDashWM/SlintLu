@@ -223,8 +223,9 @@ fn shaped_in(
     Ok(target)
 }
 
-/// Fades the pixels outside the rounded corners out, with an anti-aliased edge.
-fn round_corners(image: &mut image::RgbaImage, radii: [f32; 4]) {
+/// Fades the pixels outside the rounded corners (top left, top right, bottom right, bottom left)
+/// out, with an anti-aliased edge.
+pub fn round_corners(image: &mut image::RgbaImage, radii: [f32; 4]) {
     let (width, height) = (image.width() as f32, image.height() as f32);
     let limit = width.min(height) / 2.0;
     let [top_left, top_right, bottom_right, bottom_left] = radii.map(|r| r.clamp(0.0, limit));

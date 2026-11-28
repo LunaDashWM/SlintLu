@@ -14,6 +14,8 @@ export global Session {
     // The account's full name ("" without one) and picture (AccountsService, else ~/.face).
     in property <string> real-name;
     in property <image> avatar;
+    // The picture cut to a circle, for round frames (`clip` keeps square corners).
+    in property <image> avatar-round;
     // Why the last set-avatar failed, or "".
     in property <string> avatar-error;
 
